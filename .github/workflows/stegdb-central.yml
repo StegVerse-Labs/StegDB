@@ -1,20 +1,10 @@
-name: StegDB Central Control
+name: Apply Repair Plan From StegDB
 
 on:
-  workflow_dispatch:
-    inputs:
-      action:
-        description: "What do you want to run?"
-        required: true
-        type: choice
-        options:
-          - export_cosden_canonical
-          - ingest_metadata
-          - generate_repair_plan
-          - run_full_cycle
+  workflow_dispatch: {}
 
 jobs:
-  stegdb-central:
+  apply-repair:
     runs-on: ubuntu-latest
 
     permissions:
@@ -22,59 +12,81 @@ jobs:
       pull-requests: write
 
     steps:
+      - name: Checkout CosDen repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Checkout StegDB
         uses: actions/checkout@v4
         with:
+          repository: StegVerse-Labs/StegDB
+          path: stegdb
           fetch-depth: 0
 
-      - name: Checkout CosDen (if needed)
-        if: ${{ inputs.action == 'export_cosden_canonical' || inputs.action == 'run_full_cycle' }}
-        uses: actions/checkout@v4
-        with:
-          repository: StegVerse/CosDen
-          path: CosDen
-          fetch-depth: 0
+      - name: Check for repair plan
+        id: check_plan
+        run: |
+          if [ -f stegdb/repairs/CosDen/repair_plan.json ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Set up Python
+      - name: Abort if no repair plan
+        if: steps.check_plan.outputs.found == 'false'
+        run: |
+          echo "No repair plan found at stegdb/repairs/CosDen/repair_plan.json"
+          echo "Nothing to apply."
+          exit 0
+
+      - name: Apply repair plan
+        run: |
+          python - << 'PY'
+          import json, shutil, pathlib
+
+          repo_root = pathlib.Path(".").resolve()
+          stegdb_root = repo_root / "stegdb"
+
+          plan_path = stegdb_root / "repairs" / "CosDen" / "repair_plan.json"
+          with plan_path.open("r", encoding="utf-8") as f:
+              plan = json.load(f)
+
+          canonical_root = stegdb_root / plan["canonical_root"]
+
+          for action in plan["actions"]:
+              if action.get("type") != "write_file":
+                  continue
+              canonical_rel = action["canonical_relpath"]
+              target_rel = action["target_path"]
+
+              src = canonical_root / canonical_rel
+              dst = repo_root / target_rel
+
+              print(f"Applying: {canonical_rel} -> {target_rel}")
+              dst.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copy2(src, dst)
+          PY
+
+      - name: Set up Python for validation
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # --- ACTION: export_cosden_canonical ---
-      - name: Export CosDen canonical files
-        if: ${{ inputs.action == 'export_cosden_canonical' }}
+      - name: Install minimal deps for validation
         run: |
-          python tools/export_cosden_canonical.py --cosden-root ./CosDen
+          python -m pip install --upgrade pip
+          pip install pydantic fastapi uvicorn
 
-      # --- ACTION: ingest_metadata ---
-      - name: Ingest repo metadata
-        if: ${{ inputs.action == 'ingest_metadata' }}
+      - name: Run CosDen validator
         run: |
-          python tools/ingest_repo_metadata.py
+          python tools/validate_cosden_structure.py
 
-      # --- ACTION: generate_repair_plan ---
-      - name: Ingest metadata (for repair plan)
-        if: ${{ inputs.action == 'generate_repair_plan' }}
-        run: |
-          python tools/ingest_repo_metadata.py
-
-      - name: Generate repair plan(s)
-        if: ${{ inputs.action == 'generate_repair_plan' }}
-        run: |
-          python tools/repair_repos.py
-
-      # --- ACTION: run_full_cycle ---
-      - name: Run full cycle (CosDen)
-        if: ${{ inputs.action == 'run_full_cycle' }}
-        run: |
-          python tools/run_full_cycle.py --cosden-root ./CosDen
-
-      # --- Create PR for any changes in StegDB ---
-      - name: Create pull request for StegDB changes
+      - name: Create pull request with repairs
         uses: peter-evans/create-pull-request@v6
         with:
-          commit-message: "StegDB: ${{ inputs.action }} run"
-          title: "StegDB: ${{ inputs.action }} run"
-          body: "Automated run of `${{ inputs.action }}` via StegDB Central Control workflow."
-          branch: "stegdb/${{ inputs.action }}"
-          labels: "stegdb,auto"
+          commit-message: "Apply StegDB repair plan"
+          title: "Apply StegDB repair plan"
+          body: "This PR applies canonical file repairs as defined in StegDB/repairs/CosDen/repair_plan.json."
+          branch: "repair/from-stegdb"
+          labels: "repair,auto"
