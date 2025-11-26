@@ -1,202 +1,137 @@
 #!/usr/bin/env python3
 """
-StegDB Repair Engine for StegVerse Repos
-----------------------------------------
+StegDB Repair Engine (Phase 1: CosDen root cleanup)
 
-Phase 1: CosDen only (extensible to other repos later).
+Generates repair plans under:
 
-This script:
+    repairs/<RepoName>/repair_plan.json
 
-1) Reads StegDB/meta/aggregated_files.jsonl (created by ingest_repo_metadata.py)
-2) Walks StegDB/canonical/cosden/ to find canonical CosDen files
-3) Compares hashes with the latest known repo state
-4) Writes a repair plan to:
+For now this is focused on CosDen, and produces a plan that
+moves certain root-level files into their canonical locations
+(scripts/ and docs/), so that CosDen passes strict PROD validation.
 
-    repairs/CosDen/repair_plan.json
+Schema (v1):
 
-The repair plan can then be consumed by a workflow in the CosDen repo to
-copy canonical files into place and open a PR.
+{
+  "repo": "CosDen",
+  "version": 1,
+  "generated_at": "...",
+  "actions": [
+    {
+      "type": "move_file",
+      "from": "cosden_init_full.sh",
+      "to": "scripts/cosden_init_full.sh"
+    },
+    ...
+  ]
+}
 
-Usage (from StegDB root):
-
-    python tools/repair_repos.py
+CosDen's "Apply Repair Plan From StegDB" workflow will read this file
+and apply the moves.
 """
 
+from __future__ import annotations
+
 import json
-import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Any
-import hashlib
+from typing import List
 
 
 STEGBDB_ROOT = Path(__file__).resolve().parents[1]
-AGGREGATE_META_FILE = STEGBDB_ROOT / "meta" / "aggregated_files.jsonl"
-
-# Where canonical files live for CosDen
-COSDEN_CANONICAL_ROOT = STEGBDB_ROOT / "canonical" / "cosden"
-
-# Where to write repair plans
 REPAIRS_ROOT = STEGBDB_ROOT / "repairs"
+
+COSDEN_ROOT = STEGBDB_ROOT.parent / "CosDen"
+COSDEN_REPAIRS = REPAIRS_ROOT / "CosDen"
 
 
 @dataclass
-class FileRecord:
-    repo: str
-    path: str
-    sha256: str
-    valid_location: bool
-    raw: Dict[str, Any]
+class RepairAction:
+    type: str
+    src: str
+    dst: str
+
+    def to_dict(self) -> dict:
+        return {
+            "type": self.type,
+            "from": self.src,
+            "to": self.dst,
+        }
 
 
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(8192), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def load_aggregated_metadata() -> Dict[str, Dict[str, FileRecord]]:
+def plan_cosden_root_cleanup() -> List[RepairAction]:
     """
-    Load aggregated_files.jsonl into a mapping:
-        repo -> path -> FileRecord
+    Create move_file actions for known root files if they exist.
     """
-    index: Dict[str, Dict[str, FileRecord]] = {}
+    actions: List[RepairAction] = []
 
-    if not AGGREGATE_META_FILE.exists():
-        print(f"❌ Aggregated metadata not found: {AGGREGATE_META_FILE}", file=sys.stderr)
-        print("   Run tools/ingest_repo_metadata.py first.", file=sys.stderr)
-        return index
+    mapping = {
+        "cosden_init_full.sh": "scripts/cosden_init_full.sh",
+        "setup_cosden_structure.sh": "scripts/setup_cosden_structure.sh",
+        "COSDEN_MASTER_SPEC.md": "docs/COSDEN_MASTER_SPEC.md",
+        "Architecture.txt": "docs/Architecture.txt",
+    }
 
-    with AGGREGATE_META_FILE.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                obj = json.loads(line)
-            except json.JSONDecodeError as exc:
-                print(f"⚠️ Skipping invalid JSON in aggregated metadata: {exc}", file=sys.stderr)
-                continue
+    if not COSDEN_ROOT.exists():
+        print(f"⚠ CosDen root not found at {COSDEN_ROOT} — skipping.")
+        return actions
 
-            repo = obj.get("repo")
-            path = obj.get("path")
-            sha256 = obj.get("sha256")
-            if not repo or not path or not sha256:
-                continue
-
-            valid_location = bool(obj.get("valid_location", True))
-
-            repo_map = index.setdefault(repo, {})
-            repo_map[path] = FileRecord(
-                repo=repo,
-                path=path,
-                sha256=sha256,
-                valid_location=valid_location,
-                raw=obj,
-            )
-
-    return index
-
-
-def build_cosden_repair_plan(file_index: Dict[str, Dict[str, FileRecord]]) -> Dict[str, Any]:
-    """
-    Create a repair plan for the CosDen repo by comparing canonical files
-    under canonical/cosden/ to the known repo state from aggregated_files.jsonl.
-    """
-    repo_name = "CosDen"  # the 'repo' field in aggregated metadata for CosDen
-    repo_entries = file_index.get(repo_name, {})
-
-    if not COSDEN_CANONICAL_ROOT.exists():
-        print(f"⚠️ No canonical files found for CosDen at {COSDEN_CANONICAL_ROOT}")
-        return {}
-
-    actions: List[Dict[str, Any]] = []
-
-    for path in COSDEN_CANONICAL_ROOT.rglob("*"):
-        if path.is_dir():
+    for src_name, dst_rel in mapping.items():
+        src_path = COSDEN_ROOT / src_name
+        if not src_path.exists():
             continue
-
-        canonical_rel = path.relative_to(COSDEN_CANONICAL_ROOT).as_posix()  # e.g. src/CosDenOS/api.py
-        canonical_hash = sha256_file(path)
-
-        rec = repo_entries.get(canonical_rel)
-        if rec is None:
-            # File missing in repo: needs to be created
-            actions.append(
-                {
-                    "type": "write_file",
-                    "target_path": canonical_rel,
-                    "canonical_relpath": canonical_rel,
-                    "reason": "missing_in_repo",
-                    "canonical_sha256": canonical_hash,
-                }
+        actions.append(
+            RepairAction(
+                type="move_file",
+                src=src_name,
+                dst=dst_rel,
             )
-        elif rec.sha256 != canonical_hash:
-            # File present but different: needs update
-            actions.append(
-                {
-                    "type": "write_file",
-                    "target_path": canonical_rel,
-                    "canonical_relpath": canonical_rel,
-                    "reason": "hash_mismatch",
-                    "repo_sha256": rec.sha256,
-                    "canonical_sha256": canonical_hash,
-                }
-            )
-        else:
-            # Hash matches: nothing to do
-            continue
+        )
+
+    return actions
+
+
+def write_cosden_plan(actions: List[RepairAction]) -> None:
+    COSDEN_REPAIRS.mkdir(parents=True, exist_ok=True)
+    plan_path = COSDEN_REPAIRS / "repair_plan.json"
 
     if not actions:
-        print("✅ No differences detected for CosDen – no repair plan needed.")
-        return {}
-
-    now = datetime.now(timezone.utc).isoformat()
-
-    plan = {
-        "repo": repo_name,
-        "generated_at": now,
-        "canonical_root": "canonical/cosden",
-        "actions": actions,
-    }
-    return plan
-
-
-def write_repair_plan(repo: str, plan: Dict[str, Any]) -> None:
-    if not plan:
-        return
-
-    REPAIRS_ROOT.mkdir(exist_ok=True)
-    target_dir = REPAIRS_ROOT / repo
-    target_dir.mkdir(exist_ok=True)
-    plan_path = target_dir / "repair_plan.json"
+        # If there are no actions, we can either delete existing plan
+        # or write an empty one. We'll write an empty plan to be explicit.
+        plan = {
+            "repo": "CosDen",
+            "version": 1,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "actions": [],
+        }
+    else:
+        plan = {
+            "repo": "CosDen",
+            "version": 1,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "actions": [a.to_dict() for a in actions],
+        }
 
     with plan_path.open("w", encoding="utf-8") as f:
         json.dump(plan, f, indent=2)
 
-    rel = plan_path.relative_to(STEGBDB_ROOT)
-    print(f"🛠️ Wrote repair plan for {repo} to {rel}")
+    print(f"✅ Wrote CosDen repair plan to {plan_path}")
 
 
 def main() -> None:
-    print("\n🛠️ StegDB Repair Engine (Phase 1: CosDen)\n")
+    print("🛠 StegDB Repair Engine (Phase 1: CosDen root cleanup)\n")
 
-    file_index = load_aggregated_metadata()
-    if not file_index:
-        print("No metadata loaded; aborting.")
-        sys.exit(1)
-
-    # Build plan for CosDen
-    plan = build_cosden_repair_plan(file_index)
-    if plan:
-        write_repair_plan("CosDen", plan)
+    actions = plan_cosden_root_cleanup()
+    if not actions:
+        print("No CosDen root cleanup actions required.")
     else:
-        print("No repair actions required for CosDen.")
+        print("Planned CosDen actions:")
+        for a in actions:
+            print(f"  - {a.type}: {a.src} -> {a.dst}")
 
-    print("\nDone.\n")
+    write_cosden_plan(actions)
+    print("\nDone.")
 
 
 if __name__ == "__main__":
