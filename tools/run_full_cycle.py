@@ -32,7 +32,7 @@ def run(cmd, cwd: Path) -> None:
     print("   ✓ Done")
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args():
     parser = argparse.ArgumentParser(
         description="Run full StegDB cycle for CosDen."
     )
