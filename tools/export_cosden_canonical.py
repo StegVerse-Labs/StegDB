@@ -20,7 +20,7 @@ Or specify a custom CosDen location:
 import argparse
 import shutil
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
 
 STEGBDB_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_COSDEN_ROOT = STEGBDB_ROOT.parent / "CosDen"
@@ -28,7 +28,7 @@ DEFAULT_COSDEN_ROOT = STEGBDB_ROOT.parent / "CosDen"
 CANONICAL_ROOT = STEGBDB_ROOT / "canonical" / "cosden"
 
 
-# List of (relative path in CosDen, same relative path under canonical/cosden)
+# List of relative paths in CosDen that we treat as canonical surfaces
 CANONICAL_FILES: List[str] = [
     "src/CosDenOS/api.py",
     "src/CosDenOS/api_models.py",
