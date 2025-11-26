@@ -6,8 +6,9 @@ StegDB Full Cycle Orchestrator
 Runs the full pipeline for CosDen:
 
 1) Export canonical CosDen files into StegDB
-2) Ingest repo metadata from sibling repos
-3) Generate repair plans (starting with CosDen)
+2) Generate meta/files.jsonl for CosDen
+3) Ingest repo metadata from sibling repos
+4) Generate repair plans (starting with CosDen)
 
 Usage (from StegDB root):
 
@@ -59,13 +60,19 @@ def main() -> None:
         cwd=STEGBDB_ROOT,
     )
 
-    # 2) Ingest repo metadata (from all repos with meta/files.jsonl)
+    # 2) Generate metadata for CosDen (meta/files.jsonl inside CosDen)
+    run(
+        ["python", "tools/generate_repo_metadata.py", "--repo-root", str(cosden_root), "--repo-name", "CosDen"],
+        cwd=STEGBDB_ROOT,
+    )
+
+    # 3) Ingest repo metadata (from all repos with meta/files.jsonl)
     run(
         ["python", "tools/ingest_repo_metadata.py"],
         cwd=STEGBDB_ROOT,
     )
 
-    # 3) Generate repair plans (CosDen for now)
+    # 4) Generate repair plans (CosDen for now)
     run(
         ["python", "tools/repair_repos.py"],
         cwd=STEGBDB_ROOT,
