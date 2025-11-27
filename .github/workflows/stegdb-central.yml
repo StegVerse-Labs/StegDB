@@ -1,51 +1,45 @@
-name: stegdb-central
+name: StegDB Central Full Cycle
 
 on:
+  # manual run from Actions tab
   workflow_dispatch:
-    inputs:
-      repo:
-        description: "Optional repo name (e.g. CosDen). Leave blank to run all."
-        required: false
-        default: ""
+
+  # automatic guardian runs (every 6 hours)
+  schedule:
+    - cron: '15 */6 * * *'
 
 jobs:
   full-cycle:
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: write
-
     steps:
       - name: Checkout StegDB
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Checkout CosDen (for now)
-        uses: actions/checkout@v4
-        with:
-          repository: StegVerse-Labs/CosDen
-          path: CosDen
-          fetch-depth: 0
-
-      - name: Force clean working copy
-        run: |
-          git reset --hard
-          git clean -fdx
-        
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-
-      - name: Install minimal deps
-        run: |
-          python -m pip install --upgrade pip
+          python-version: '3.11'
 
       - name: Run StegDB Full Cycle
+        run: python tools/run_full_cycle.py
+
+      - name: Upload StegDB metadata artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stegdb-metadata
+          path: |
+            meta/aggregated_files.jsonl
+            meta/dependency_status.json
+          if-no-files-found: ignore
+
+      - name: Print dependency summary (if present)
+        if: always()
         run: |
-          if [ -n "${{ github.event.inputs.repo }}" ]; then
-            python tools/run_full_cycle.py --repo "${{ github.event.inputs.repo }}"
+          echo "===== StegDB Guardian Summary ====="
+          if [ -f meta/dependency_status.json ]; then
+            cat meta/dependency_status.json
           else
-            python tools/run_full_cycle.py --all
+            echo "No meta/dependency_status.json produced."
           fi
