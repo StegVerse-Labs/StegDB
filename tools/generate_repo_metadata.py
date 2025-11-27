@@ -1,33 +1,35 @@
 #!/usr/bin/env python3
 """
-Generate per-repo file metadata (JSONL) for StegDB.
+Generate per-repo file metadata for StegDB.
 
-This script scans a target repo (e.g. CosDen) and writes:
+Usage (normally via run_full_cycle.py):
 
-    <repo_root>/meta/files.jsonl
+    python tools/generate_repo_metadata.py \
+        --repo-name CosDen \
+        --repo-root ../CosDen \
+        --output repos/CosDen/files.jsonl
 
-with one JSON object per file containing:
-- repo          (logical repo name, e.g. "CosDen")
-- path          (relative path from repo root, posix style)
-- sha256        (file hash)
-- size_bytes
-- timestamp     (UTC ISO8601)
-- valid_location (always True for now)
-- issues        (empty list for now)
+It walks the repo root, records relative paths, sizes, and SHA256 hashes
+for all regular files (excluding .git and some common junk), and writes
+JSONL records to the output file.
 
-Usage (from StegDB root):
+Each record:
 
-    python tools/generate_repo_metadata.py --repo-root ../CosDen --repo-name CosDen
+{
+  "repo": "CosDen",
+  "path": "src/CosDenOS/api.py",
+  "sha256": "...",
+  "size_bytes": 1234
+}
 """
+
+from __future__ import annotations
 
 import argparse
 import hashlib
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
-
-DEFAULT_INCLUDE_DIRS = ("src", "tools")
 
 
 def sha256_file(path: Path) -> str:
@@ -38,75 +40,64 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
-def iter_files(root: Path, include_dirs: Iterable[str]):
-    for rel_dir in include_dirs:
-        base = root / rel_dir
-        if not base.exists():
+IGNORE_DIRS = {".git", ".github", "__pycache__", ".mypy_cache", ".pytest_cache"}
+IGNORE_FILES = {".DS_Store"}
+
+
+def iter_files(root: Path) -> Iterable[Path]:
+    for p in root.rglob("*"):
+        if not p.is_file():
             continue
-        for p in base.rglob("*"):
-            if p.is_file():
-                yield p
+        parts = p.relative_to(root).parts
+        if parts and parts[0] in IGNORE_DIRS:
+            continue
+        if p.name in IGNORE_FILES:
+            continue
+        yield p
 
 
-def generate_metadata(repo_root: Path, repo_name: str, include_dirs=DEFAULT_INCLUDE_DIRS) -> Path:
-    meta_dir = repo_root / "meta"
-    meta_dir.mkdir(exist_ok=True)
-    meta_file = meta_dir / "files.jsonl"
-    if meta_file.exists():
-        meta_file.unlink()
+def generate_metadata(repo_name: str, repo_root: Path, output: Path) -> None:
+    output.parent.mkdir(parents=True, exist_ok=True)
 
-    now = datetime.now(timezone.utc).isoformat()
+    print(f"📝 Generating metadata for {repo_name} from {repo_root}")
+    count = 0
 
-    with meta_file.open("w", encoding="utf-8") as out:
-        for path in iter_files(repo_root, include_dirs):
-            rel_path = path.relative_to(repo_root).as_posix()
+    with output.open("w", encoding="utf-8") as out:
+        for path in iter_files(repo_root):
+            rel = path.relative_to(repo_root).as_posix()
             size = path.stat().st_size
-            file_hash = sha256_file(path)
-
+            digest = sha256_file(path)
             rec = {
                 "repo": repo_name,
-                "path": rel_path,
-                "sha256": file_hash,
+                "path": rel,
+                "sha256": digest,
                 "size_bytes": size,
-                "timestamp": now,
-                "valid_location": True,
-                "issues": [],
             }
             out.write(json.dumps(rec) + "\n")
+            count += 1
 
-    return meta_file
+    print(f"  ✓ Wrote {count} records to {output}")
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Generate per-repo metadata (meta/files.jsonl) for StegDB."
-    )
-    parser.add_argument(
-        "--repo-root",
-        type=str,
-        required=True,
-        help="Path to the target repo root (e.g. ../CosDen)",
-    )
-    parser.add_argument(
-        "--repo-name",
-        type=str,
-        required=True,
-        help='Logical repo name to record in metadata (e.g. "CosDen")',
-    )
-    return parser.parse_args()
+    p = argparse.ArgumentParser()
+    p.add_argument("--repo-name", required=True)
+    p.add_argument("--repo-root", required=True)
+    p.add_argument("--output", required=True)
+    return p.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    repo_root = Path(args.repo_root).resolve()
     repo_name = args.repo_name
+    repo_root = Path(args.repo_root).resolve()
+    output = Path(args.output).resolve()
 
     if not repo_root.exists():
         raise SystemExit(f"Repo root does not exist: {repo_root}")
 
-    print(f"📦 Generating metadata for repo '{repo_name}' at {repo_root}")
-    meta_file = generate_metadata(repo_root, repo_name)
-    print(f"✅ Wrote metadata to {meta_file}")
+    generate_metadata(repo_name, repo_root, output)
+
 
 if __name__ == "__main__":
     main()
