@@ -1,3 +1,32 @@
 {
-  "CosDen": []
+  "repos": [
+    {
+      "name": "CosDen",
+      "critical": true,
+      "tags": ["cosmetic", "frontend", "engine"],
+      "depends_on": [
+        "StegCore"
+      ]
+    },
+    {
+      "name": "StegCore",
+      "critical": true,
+      "tags": ["core", "orchestration", "security"],
+      "depends_on": []
+    },
+    {
+      "name": "StegTalk",
+      "critical": false,
+      "tags": ["comms", "messaging"],
+      "depends_on": [
+        "StegCore"
+      ]
+    },
+    {
+      "name": "StegDB",
+      "critical": true,
+      "tags": ["metadata", "guardian-db"],
+      "depends_on": []
+    }
+  ]
 }
