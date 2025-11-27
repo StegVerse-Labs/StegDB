@@ -1,0 +1,11 @@
+{
+  "CosDen": {
+    "org": "StegVerse-Labs",
+    "repo": "CosDen",
+    "slug": "cosden",
+    "local_clone_dir": "CosDen",
+    "canonical_dir": "canonical/cosden",
+    "repair_dir": "repairs/CosDen",
+    "metadata_file": "repos/CosDen/files.jsonl"
+  }
+}
