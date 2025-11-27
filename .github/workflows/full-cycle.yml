@@ -1,4 +1,4 @@
-name: StegDB Full Cycle
+name: StegDB Full Cycle (Self-Healing)
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ jobs:
 
     steps:
     # -------------------------
-    # 1. Checkout StegDB itself
+    # 1. Checkout StegDB
     # -------------------------
     - name: Checkout StegDB
       uses: actions/checkout@v4
@@ -28,7 +28,17 @@ jobs:
       run: python -m pip install --upgrade pip
 
     # -------------------------
-    # 3. Define repo list from repos_config.json
+    # 3. Bootstrap core dirs
+    # -------------------------
+    - name: Bootstrap directories
+      run: |
+        set -e
+        mkdir -p meta
+        mkdir -p repos
+        mkdir -p repairs
+
+    # -------------------------
+    # 4. Read repo list from tools/repos_config.json
     # -------------------------
     - name: Read repo list
       id: repo_list
@@ -41,10 +51,16 @@ jobs:
         fi
 
         REPOS=$(jq -r '.repos[].name' "$CONFIG" | tr '\n' ' ')
-        echo "repos=$REPOS" >> $GITHUB_OUTPUT
+        if [ -z "$REPOS" ]; then
+          echo "::error::No repos configured in tools/repos_config.json"
+          exit 1
+        fi
+
+        echo "repos=$REPOS" >> "$GITHUB_OUTPUT"
+        echo "Repos: $REPOS"
 
     # -------------------------
-    # 4. Export canonical from each repo
+    # 5. Export canonical from each repo
     # -------------------------
     - name: Export canonical
       run: |
@@ -53,14 +69,12 @@ jobs:
 
         for repo in ${{ steps.repo_list.outputs.repos }}; do
           echo "📦 Exporting canonical for: $repo"
-
           python tools/export_cosden_canonical.py \
-            --cosden-root $repo \
-            || { echo "::error::Export failed for $repo"; exit 1; }
+            --cosden-root "$repo"
         done
 
     # -------------------------
-    # 5. Generate per-repo metadata
+    # 6. Generate per-repo metadata
     # -------------------------
     - name: Generate metadata
       run: |
@@ -71,51 +85,123 @@ jobs:
 
         for repo in ${{ steps.repo_list.outputs.repos }}; do
           echo "🧾 Generating metadata for $repo"
-
+          mkdir -p "repos/${repo}"
           python tools/generate_repo_metadata.py \
             --repo-name "$repo" \
             --repo-root "$repo" \
-            --output "repos/${repo}/files.jsonl" \
-            || { echo "::error::Metadata generation failed for $repo"; exit 1; }
+            --output "repos/${repo}/files.jsonl"
         done
 
     # -------------------------
-    # 6. Aggregate metadata into meta/aggregated_files.jsonl
+    # 7. Aggregate metadata into meta/aggregated_files.jsonl
     # -------------------------
     - name: Aggregate metadata
       run: |
         set -e
         echo "===== Metadata Aggregation ====="
-
         mkdir -p meta
-
-        python tools/ingest_repo_metadata.py \
-          || { echo "::error::Ingestion failed"; exit 1; }
+        python tools/ingest_repo_metadata.py
 
     # -------------------------
-    # 7. Run repair engine
+    # 8. Run repair engine
     # -------------------------
     - name: Run repair engine
       run: |
         set -e
         echo "===== Repair Engine ====="
-
-        python tools/repair_repos.py \
-          || { echo "::error::Repair pass failed"; exit 1; }
+        python tools/repair_repos.py
 
     # -------------------------
-    # 8. Evaluate dependency status
+    # 9. First pass: Evaluate dependency status
     # -------------------------
-    - name: Evaluate dependency status
+    - name: Evaluate dependency status (first pass)
       run: |
         set -e
-        echo "===== Evaluate dependency status ====="
-
-        python tools/evaluate_dependencies.py \
-          || { echo "::error::Dependency evaluation failed"; exit 1; }
+        echo "===== Evaluate dependency status (first pass) ====="
+        python tools/evaluate_dependencies.py
 
     # -------------------------
-    # 9. Finish
+    # 10. Verify key artifacts (first pass, soft-fail)
+    # -------------------------
+    - name: Verify artifacts (first pass)
+      id: verify_first
+      continue-on-error: true
+      run: |
+        set -e
+        echo "===== Verify artifacts (first pass) ====="
+        OK=1
+
+        if [ ! -s meta/aggregated_files.jsonl ]; then
+          echo "::warning::meta/aggregated_files.jsonl missing or empty"
+          OK=0
+        fi
+
+        if [ ! -s meta/dependency_status.json ]; then
+          echo "::warning::meta/dependency_status.json missing or empty"
+          OK=0
+        fi
+
+        if [ $OK -eq 0 ]; then
+          echo "First pass verification FAILED"
+          # non-zero exit triggers self-healing step
+          exit 1
+        else
+          echo "First pass verification OK"
+        fi
+
+    # -------------------------
+    # 11. Self-healing path (only if first verify failed)
+    # -------------------------
+    - name: Self-heal + re-evaluate dependencies
+      if: ${{ steps.verify_first.outcome == 'failure' }}
+      run: |
+        set -e
+        echo "===== SELF-HEALING PATH ====="
+
+        echo "🔁 Re-aggregating metadata..."
+        mkdir -p meta
+        python tools/ingest_repo_metadata.py
+
+        echo "🔁 Re-running dependency evaluation..."
+        python tools/evaluate_dependencies.py
+
+        echo "🧠 Writing diagnostics..."
+        cat << 'EOF' > meta/diagnostics.json
+        {
+          "source": "full-cycle.yml",
+          "self_heal_applied": true,
+          "timestamp_utc": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        }
+        EOF
+
+    # -------------------------
+    # 12. Final verification (hard gate)
+    # -------------------------
+    - name: Verify artifacts (final, hard gate)
+      run: |
+        set -e
+        echo "===== Final artifact verification ====="
+        ERR=0
+
+        if [ ! -s meta/aggregated_files.jsonl ]; then
+          echo "::error::meta/aggregated_files.jsonl still missing or empty after self-heal"
+          ERR=1
+        fi
+
+        if [ ! -s meta/dependency_status.json ]; then
+          echo "::error::meta/dependency_status.json still missing or empty after self-heal"
+          ERR=1
+        fi
+
+        if [ $ERR -ne 0 ]; then
+          echo "Final verification FAILED"
+          exit 1
+        else
+          echo "Final verification OK"
+        fi
+
+    # -------------------------
+    # 13. Done
     # -------------------------
     - name: Done
-      run: echo "🎉 Full cycle complete."
+      run: echo "🎉 Full cycle (self-healing) complete."
