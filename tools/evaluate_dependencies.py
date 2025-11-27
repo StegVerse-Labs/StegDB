@@ -104,7 +104,7 @@ def eval_repo(
         highest_mode=highest_mode,
         has_stamp=True,
         dependencies=deps,
-        deps_ok=True,  # updated after all repos processed
+        deps_ok=True,  # filled in later
         problems=problems,
     )
 
@@ -117,7 +117,7 @@ def evaluate() -> None:
 
     statuses: Dict[str, RepoStatus] = {}
 
-    # first pass: each repo individually
+    # first pass: individual repos
     for repo_name, deps in graph.items():
         cfg = cfg_all.get(repo_name)
         statuses[repo_name] = eval_repo(repo_name, cfg, list(deps))
