@@ -28,6 +28,11 @@ jobs:
           path: CosDen
           fetch-depth: 0
 
+      - name: Force clean working copy
+        run: |
+          git reset --hard
+          git clean -fdx
+        
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
