@@ -121,7 +121,8 @@ jobs:
         python tools/evaluate_dependencies.py
 
     # -------------------------
-    # 10. Verify key artifacts (first pass, soft-fail)
+    # 10. Verify key artifacts (first pass)
+    #     If this fails, we drop into the self-heal step.
     # -------------------------
     - name: Verify artifacts (first pass)
       id: verify_first
@@ -143,7 +144,6 @@ jobs:
 
         if [ $OK -eq 0 ]; then
           echo "First pass verification FAILED"
-          # non-zero exit triggers self-healing step
           exit 1
         else
           echo "First pass verification OK"
@@ -166,7 +166,7 @@ jobs:
         python tools/evaluate_dependencies.py
 
         echo "🧠 Writing diagnostics..."
-        cat << 'EOF' > meta/diagnostics.json
+        cat << EOF > meta/diagnostics.json
         {
           "source": "full-cycle.yml",
           "self_heal_applied": true,
@@ -201,7 +201,36 @@ jobs:
         fi
 
     # -------------------------
-    # 13. Done
+    # 13. Commit & push meta/ + dependency_status.json
+    # -------------------------
+    - name: Commit and push StegDB meta
+      if: github.ref == 'refs/heads/main'
+      run: |
+        set -e
+        echo "===== Commit & push meta ====="
+
+        git status --short
+
+        # stage only the meta + dependency graph pieces
+        git add meta/*.json meta/*.jsonl tools/dependency_graph.json 2>/dev/null || true
+
+        if [ -z "$(git diff --cached --name-only)" ]; then
+          echo "No meta changes to commit."
+          exit 0
+        fi
+
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+        git commit -m "Update StegDB meta & dependency status [skip ci]" || {
+          echo "Nothing to commit."
+          exit 0
+        }
+
+        git push
+
+    # -------------------------
+    # 14. Done
     # -------------------------
     - name: Done
       run: echo "🎉 Full cycle (self-healing) complete."
