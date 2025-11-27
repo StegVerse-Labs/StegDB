@@ -1,0 +1,121 @@
+name: StegDB Full Cycle
+
+on:
+  workflow_dispatch:
+
+jobs:
+  full-cycle:
+    runs-on: ubuntu-latest
+
+    steps:
+    # -------------------------
+    # 1. Checkout StegDB itself
+    # -------------------------
+    - name: Checkout StegDB
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # -------------------------
+    # 2. Set up Python
+    # -------------------------
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install minimal dependencies
+      run: python -m pip install --upgrade pip
+
+    # -------------------------
+    # 3. Define repo list from repos_config.json
+    # -------------------------
+    - name: Read repo list
+      id: repo_list
+      run: |
+        set -e
+        CONFIG="tools/repos_config.json"
+        if [ ! -f "$CONFIG" ]; then
+          echo "::error::Missing tools/repos_config.json"
+          exit 1
+        fi
+
+        REPOS=$(jq -r '.repos[].name' "$CONFIG" | tr '\n' ' ')
+        echo "repos=$REPOS" >> $GITHUB_OUTPUT
+
+    # -------------------------
+    # 4. Export canonical from each repo
+    # -------------------------
+    - name: Export canonical
+      run: |
+        set -e
+        echo "===== Canonical Export ====="
+
+        for repo in ${{ steps.repo_list.outputs.repos }}; do
+          echo "📦 Exporting canonical for: $repo"
+
+          python tools/export_cosden_canonical.py \
+            --cosden-root $repo \
+            || { echo "::error::Export failed for $repo"; exit 1; }
+        done
+
+    # -------------------------
+    # 5. Generate per-repo metadata
+    # -------------------------
+    - name: Generate metadata
+      run: |
+        set -e
+        echo "===== Metadata Generation ====="
+
+        mkdir -p repos
+
+        for repo in ${{ steps.repo_list.outputs.repos }}; do
+          echo "🧾 Generating metadata for $repo"
+
+          python tools/generate_repo_metadata.py \
+            --repo-name "$repo" \
+            --repo-root "$repo" \
+            --output "repos/${repo}/files.jsonl" \
+            || { echo "::error::Metadata generation failed for $repo"; exit 1; }
+        done
+
+    # -------------------------
+    # 6. Aggregate metadata into meta/aggregated_files.jsonl
+    # -------------------------
+    - name: Aggregate metadata
+      run: |
+        set -e
+        echo "===== Metadata Aggregation ====="
+
+        mkdir -p meta
+
+        python tools/ingest_repo_metadata.py \
+          || { echo "::error::Ingestion failed"; exit 1; }
+
+    # -------------------------
+    # 7. Run repair engine
+    # -------------------------
+    - name: Run repair engine
+      run: |
+        set -e
+        echo "===== Repair Engine ====="
+
+        python tools/repair_repos.py \
+          || { echo "::error::Repair pass failed"; exit 1; }
+
+    # -------------------------
+    # 8. Evaluate dependency status
+    # -------------------------
+    - name: Evaluate dependency status
+      run: |
+        set -e
+        echo "===== Evaluate dependency status ====="
+
+        python tools/evaluate_dependencies.py \
+          || { echo "::error::Dependency evaluation failed"; exit 1; }
+
+    # -------------------------
+    # 9. Finish
+    # -------------------------
+    - name: Done
+      run: echo "🎉 Full cycle complete."
