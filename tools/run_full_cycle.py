@@ -1,21 +1,18 @@
 #!/usr/bin/env python3
 """
-StegDB Full Cycle driver (multi-repo aware).
+StegDB Full Cycle driver (multi-repo aware, MEGA mode).
 
 For each configured repo:
 
   1) Export canonical snapshot (repo-specific script)
   2) Generate per-repo metadata files.jsonl
   3) Ingest all repos into meta/aggregated_files.jsonl
-  4) Run repair_repos.py to generate repair plans (per repo)
+  4) Run repair_repos.py to generate repair plans
   5) Evaluate cross-repo dependency status
 
 Usage:
 
-  # All repos
   python tools/run_full_cycle.py --all
-
-  # Single repo
   python tools/run_full_cycle.py --repo CosDen
 """
 
@@ -44,7 +41,6 @@ def run(cmd: Iterable[str], cwd: Path | None = None) -> None:
 
 
 def export_canonical(repo_name: str, cfg: Dict[str, Any]) -> None:
-    slug = cfg["slug"]
     local_clone = cfg["local_clone_dir"]
 
     if repo_name == "CosDen":
@@ -85,13 +81,7 @@ def generate_metadata(repo_name: str, cfg: Dict[str, Any]) -> None:
 
 
 def ingest_all_metadata() -> None:
-    run(
-        [
-            "python",
-            "tools/ingest_repo_metadata.py",
-        ],
-        cwd=STEGBDB_ROOT,
-    )
+    run(["python", "tools/ingest_repo_metadata.py"], cwd=STEGBDB_ROOT)
 
 
 def run_repairs() -> None:
@@ -99,13 +89,7 @@ def run_repairs() -> None:
     if not script.exists():
         print("⚠ repair_repos.py not found; skipping repairs.")
         return
-    run(
-        [
-            "python",
-            "tools/repair_repos.py",
-        ],
-        cwd=STEGBDB_ROOT,
-    )
+    run(["python", "tools/repair_repos.py"], cwd=STEGBDB_ROOT)
 
 
 def evaluate_dependencies() -> None:
@@ -113,20 +97,14 @@ def evaluate_dependencies() -> None:
     if not script.exists():
         print("⚠ evaluate_dependencies.py not found; skipping dependency evaluation.")
         return
-    run(
-        [
-            "python",
-            "tools/evaluate_dependencies.py",
-        ],
-        cwd=STEGBDB_ROOT,
-    )
+    run(["python", "tools/evaluate_dependencies.py"], cwd=STEGBDB_ROOT)
 
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     group = p.add_mutually_exclusive_group(required=True)
-    group.add_argument("--all", action="store_true", help="Run for all configured repos.")
-    group.add_argument("--repo", help="Run for a single repo (e.g. CosDen).")
+    group.add_argument("--all", action="store_true")
+    group.add_argument("--repo", help="Single repo name (e.g., CosDen)")
     return p.parse_args()
 
 
@@ -141,8 +119,9 @@ def main() -> None:
             raise SystemExit(f"Unknown repo {args.repo!r} (not in repos_config.json).")
         target_repos = [args.repo]
 
-    print("🧠 StegDB Full Cycle")
-    print(f"   Repos: {', '.join(target_repos)}\n")
+    print("🧠 StegDB Full Cycle (MEGA)")
+    print(f"   Repos: {', '.join(target_repos)}")
+    print()
 
     for repo_name in target_repos:
         rcfg = cfg[repo_name]
