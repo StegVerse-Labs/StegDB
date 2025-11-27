@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-StegDB Full Cycle driver (multi-repo aware, MEGA mode).
+StegDB Full Cycle driver (multi-repo aware).
 
 For each configured repo:
 
@@ -8,7 +8,7 @@ For each configured repo:
   2) Generate per-repo metadata files.jsonl
   3) Ingest all repos into meta/aggregated_files.jsonl
   4) Run repair_repos.py to generate repair plans
-  5) Evaluate cross-repo dependency status
+  5) Evaluate cross-repo dependency status -> meta/dependency_status.json
 
 Usage:
 
@@ -119,7 +119,7 @@ def main() -> None:
             raise SystemExit(f"Unknown repo {args.repo!r} (not in repos_config.json).")
         target_repos = [args.repo]
 
-    print("🧠 StegDB Full Cycle (MEGA)")
+    print("🧠 StegDB Full Cycle")
     print(f"   Repos: {', '.join(target_repos)}")
     print()
 
