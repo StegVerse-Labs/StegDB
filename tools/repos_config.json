@@ -1,33 +1,12 @@
 {
-  "generated_by": "StegDB",
-  "version": 1,
   "repos": [
     {
       "name": "CosDen",
-      "owner": "StegVerse",
-      "path": "CosDen",
-      "active": true,
-      "tier": "core",
-      "depends_on": [],
-      "notes": "First fully wired StegVerse repo guarded by StegDB."
+      "url": "https://github.com/StegVerse/CosDen.git"
     },
     {
       "name": "StegCore",
-      "owner": "StegVerse",
-      "path": "StegCore",
-      "active": false,
-      "tier": "core",
-      "depends_on": [],
-      "notes": "Turn active=true once StegCore exists and has its own validators/canonical export."
-    },
-    {
-      "name": "StegTalk",
-      "owner": "StegVerse",
-      "path": "StegTalk",
-      "active": false,
-      "tier": "service",
-      "depends_on": ["StegCore"],
-      "notes": "Example downstream service depending on StegCore; safe placeholder for future."
+      "url": "https://github.com/StegVerse/StegCore.git"
     }
   ]
 }
