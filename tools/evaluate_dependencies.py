@@ -5,48 +5,40 @@ Evaluate cross-repo dependency status for StegDB.
 Reads:
   - tools/repos_config.json
   - tools/dependency_graph.json
-  - <local_clone_dir>/meta/validation_stamp.json (per repo)
+  - <repo>/meta/validation_stamp.json
 
 Writes:
   - meta/dependency_status.json
 """
 
 from __future__ import annotations
-
 import json
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Any
 
-STEGBDB_ROOT = Path(__file__).resolve().parents[1]
-CONFIG_PATH = STEGBDB_ROOT / "tools" / "repos_config.json"
-GRAPH_PATH = STEGBDB_ROOT / "tools" / "dependency_graph.json"
-META_DIR = STEGBDB_ROOT / "meta"
-DEPS_STATUS_PATH = META_DIR / "dependency_status.json"
-
+ROOT = Path(__file__).resolve().parents[1]
+CFG = ROOT / "tools" / "repos_config.json"
+GRAPH = ROOT / "tools" / "dependency_graph.json"
+META = ROOT / "meta"
+OUTFILE = META / "dependency_status.json"
 
 @dataclass
 class RepoStatus:
     name: str
-    self_status: str        # "prod", "build", "no_stamp", "not_cloned", "unconfigured"
+    self_status: str
     highest_mode: str | None
     has_stamp: bool
     dependencies: List[str]
     deps_ok: bool
     problems: List[str]
 
-
-def load_json(path: Path) -> Any:
-    with path.open("r", encoding="utf-8") as f:
+def load_json(path: Path):
+    with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
-
-def eval_repo(
-    name: str,
-    cfg: Dict[str, Any] | None,
-    deps: List[str],
-) -> RepoStatus:
+def evaluate_repo(name: str, cfg: Dict[str, Any] | None, deps: List[str]) -> RepoStatus:
     if cfg is None:
         return RepoStatus(
             name=name,
@@ -55,110 +47,90 @@ def eval_repo(
             has_stamp=False,
             dependencies=deps,
             deps_ok=False,
-            problems=[f"{name} in dependency_graph.json but not in repos_config.json"],
+            problems=[f"{name} not in repos_config.json"]
         )
 
-    local_dir = STEGBDB_ROOT / cfg["local_clone_dir"]
-    stamp_path = local_dir / "meta" / "validation_stamp.json"
+    repo_root = ROOT / cfg["local_clone_dir"]
+    stamp = repo_root / "meta" / "validation_stamp.json"
 
-    if not local_dir.exists():
+    if not repo_root.exists():
         return RepoStatus(
             name=name,
             self_status="not_cloned",
             highest_mode=None,
             has_stamp=False,
             dependencies=deps,
-            deps_ok=False if deps else True,
-            problems=[f"Local clone directory missing: {local_dir}"],
+            deps_ok=False,
+            problems=[f"Missing clone: {repo_root}"]
         )
 
-    if not stamp_path.exists():
+    if not stamp.exists():
         return RepoStatus(
             name=name,
             self_status="no_stamp",
             highest_mode=None,
             has_stamp=False,
             dependencies=deps,
-            deps_ok=False if deps else True,
-            problems=[f"validation_stamp.json missing in {local_dir}/meta"],
+            deps_ok=False,
+            problems=["Missing validation_stamp.json"]
         )
 
-    with stamp_path.open("r", encoding="utf-8") as f:
-        stamp = json.load(f)
+    data = load_json(stamp)
+    mode = data.get("highest_mode", None)
+    problems = []
+    status = "unknown"
 
-    highest_mode = stamp.get("highest_mode")
-    problems: List[str] = []
-
-    if highest_mode == "prod":
-        self_status = "prod"
-    elif highest_mode == "build":
-        self_status = "build"
-        problems.append("Repo only validated in build mode, not prod.")
+    if mode == "prod":
+        status = "prod"
+    elif mode == "build":
+        status = "build"
+        problems.append("Repo validated only in build mode.")
     else:
-        self_status = "unknown"
-        problems.append(f"Unknown highest_mode in stamp: {highest_mode!r}")
+        problems.append(f"Invalid mode: {mode}")
 
     return RepoStatus(
         name=name,
-        self_status=self_status,
-        highest_mode=highest_mode,
+        self_status=status,
+        highest_mode=mode,
         has_stamp=True,
         dependencies=deps,
-        deps_ok=True,  # filled in later
-        problems=problems,
+        deps_ok=True,
+        problems=problems
     )
 
+def main():
+    META.mkdir(exist_ok=True)
 
-def evaluate() -> None:
-    META_DIR.mkdir(exist_ok=True)
+    cfg = load_json(CFG)
+    graph = load_json(GRAPH)
 
-    cfg_all = load_json(CONFIG_PATH)
-    graph = load_json(GRAPH_PATH)
+    statuses = {}
 
-    statuses: Dict[str, RepoStatus] = {}
+    for repo, deps in graph.items():
+        statuses[repo] = evaluate_repo(repo, cfg.get(repo), deps)
 
-    # first pass: individual repos
-    for repo_name, deps in graph.items():
-        cfg = cfg_all.get(repo_name)
-        statuses[repo_name] = eval_repo(repo_name, cfg, list(deps))
-
-    # second pass: dependency satisfaction
-    for repo_name, st in statuses.items():
-        deps_ok = True
+    # Evaluate dependency success
+    for repo, st in statuses.items():
+        ok = True
         for dep in st.dependencies:
-            dep_status = statuses.get(dep)
-            if dep_status is None:
-                deps_ok = False
-                st.problems.append(f"Dependency {dep} not present in statuses.")
-                continue
-            if dep_status.self_status != "prod":
-                deps_ok = False
-                st.problems.append(
-                    f"Dependency {dep} is not prod (status={dep_status.self_status})."
-                )
-        st.deps_ok = deps_ok
+            dep_st = statuses.get(dep)
+            if not dep_st or dep_st.self_status != "prod":
+                ok = False
+                st.problems.append(f"Dependency {dep} not prod.")
+        st.deps_ok = ok
 
     out = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "repos": {
-            name: {k: v for k, v in asdict(status).items() if k != "name"}
-            for name, status in statuses.items()
-        },
+            name: {k: v for k, v in asdict(st).items() if k != "name"}
+            for name, st in statuses.items()
+        }
     }
 
-    with DEPS_STATUS_PATH.open("w", encoding="utf-8") as f:
+    with open(OUTFILE, "w", encoding="utf-8") as f:
         json.dump(out, f, indent=2)
 
-    print(f"✅ Wrote dependency status to {DEPS_STATUS_PATH}")
-
-
-def main() -> None:
-    if not CONFIG_PATH.exists():
-        raise SystemExit(f"Missing repos_config.json at {CONFIG_PATH}")
-    if not GRAPH_PATH.exists():
-        raise SystemExit(f"Missing dependency_graph.json at {GRAPH_PATH}")
-    evaluate()
-
+    print(f"✅ Wrote {OUTFILE}")
 
 if __name__ == "__main__":
     main()
