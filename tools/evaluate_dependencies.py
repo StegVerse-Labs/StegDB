@@ -2,29 +2,13 @@
 """
 Evaluate cross-repo dependency status for StegDB.
 
-Inputs:
+Reads:
   - tools/repos_config.json
   - tools/dependency_graph.json
-  - <local_clone_dir>/meta/validation_stamp.json (in each cloned repo)
+  - <local_clone_dir>/meta/validation_stamp.json (per repo)
 
-Output:
+Writes:
   - meta/dependency_status.json
-
-Example structure:
-
-{
-  "generated_at": "...",
-  "repos": {
-    "CosDen": {
-      "self_status": "prod",
-      "highest_mode": "prod",
-      "has_stamp": true,
-      "dependencies": [],
-      "deps_ok": true,
-      "problems": []
-    }
-  }
-}
 """
 
 from __future__ import annotations
@@ -45,7 +29,7 @@ DEPS_STATUS_PATH = META_DIR / "dependency_status.json"
 @dataclass
 class RepoStatus:
     name: str
-    self_status: str        # "prod", "build", "no_stamp", "not_cloned"
+    self_status: str        # "prod", "build", "no_stamp", "not_cloned", "unconfigured"
     highest_mode: str | None
     has_stamp: bool
     dependencies: List[str]
@@ -60,9 +44,20 @@ def load_json(path: Path) -> Any:
 
 def eval_repo(
     name: str,
-    cfg: Dict[str, Any],
+    cfg: Dict[str, Any] | None,
     deps: List[str],
 ) -> RepoStatus:
+    if cfg is None:
+        return RepoStatus(
+            name=name,
+            self_status="unconfigured",
+            highest_mode=None,
+            has_stamp=False,
+            dependencies=deps,
+            deps_ok=False,
+            problems=[f"{name} in dependency_graph.json but not in repos_config.json"],
+        )
+
     local_dir = STEGBDB_ROOT / cfg["local_clone_dir"]
     stamp_path = local_dir / "meta" / "validation_stamp.json"
 
@@ -103,14 +98,13 @@ def eval_repo(
         self_status = "unknown"
         problems.append(f"Unknown highest_mode in stamp: {highest_mode!r}")
 
-    # We don't yet know whether deps themselves are OK; that is resolved later.
     return RepoStatus(
         name=name,
         self_status=self_status,
         highest_mode=highest_mode,
         has_stamp=True,
         dependencies=deps,
-        deps_ok=True,  # provisional; we'll adjust after all repos processed
+        deps_ok=True,  # updated after all repos processed
         problems=problems,
     )
 
@@ -118,28 +112,17 @@ def eval_repo(
 def evaluate() -> None:
     META_DIR.mkdir(exist_ok=True)
 
-    cfg = load_json(CONFIG_PATH)
+    cfg_all = load_json(CONFIG_PATH)
     graph = load_json(GRAPH_PATH)
 
-    # First pass: evaluate each repo individually.
     statuses: Dict[str, RepoStatus] = {}
+
+    # first pass: each repo individually
     for repo_name, deps in graph.items():
-        if repo_name not in cfg:
-            # Graph mentions repo not in config; mark as problematic.
-            statuses[repo_name] = RepoStatus(
-                name=repo_name,
-                self_status="unconfigured",
-                highest_mode=None,
-                has_stamp=False,
-                dependencies=list(deps),
-                deps_ok=False,
-                problems=[f"Repo {repo_name} appears in dependency graph but not in repos_config.json"],
-            )
-            continue
+        cfg = cfg_all.get(repo_name)
+        statuses[repo_name] = eval_repo(repo_name, cfg, list(deps))
 
-        statuses[repo_name] = eval_repo(repo_name, cfg[repo_name], deps)
-
-    # Second pass: check dependencies.
+    # second pass: dependency satisfaction
     for repo_name, st in statuses.items():
         deps_ok = True
         for dep in st.dependencies:
@@ -158,11 +141,7 @@ def evaluate() -> None:
     out = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "repos": {
-            name: {
-                k: v
-                for k, v in asdict(status).items()
-                if k not in {"name"}  # name is the dict key
-            }
+            name: {k: v for k, v in asdict(status).items() if k != "name"}
             for name, status in statuses.items()
         },
     }
