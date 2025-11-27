@@ -18,16 +18,16 @@
       "active": false,
       "tier": "core",
       "depends_on": [],
-      "notes": "Activate once StegCore repo and validators exist."
+      "notes": "Turn active=true once StegCore exists and has its own validators/canonical export."
     },
     {
-      "name": "StegVA",
+      "name": "StegTalk",
       "owner": "StegVerse",
-      "path": "StegVA",
+      "path": "StegTalk",
       "active": false,
       "tier": "service",
       "depends_on": ["StegCore"],
-      "notes": "Example downstream service depending on StegCore."
+      "notes": "Example downstream service depending on StegCore; safe placeholder for future."
     }
   ]
 }
