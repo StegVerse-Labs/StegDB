@@ -1,84 +1,152 @@
 #!/usr/bin/env python3
 """
-StegDB Full Cycle Orchestrator
-------------------------------
+StegDB Full Cycle driver (multi-repo aware).
 
-Runs the full pipeline for CosDen:
+For each configured repo:
 
-1) Export canonical CosDen files into StegDB
-2) Generate meta/files.jsonl for CosDen
-3) Ingest repo metadata from sibling repos
-4) Generate repair plans (starting with CosDen)
+  1) Export canonical snapshot (repo-specific script)
+  2) Generate per-repo metadata files.jsonl
+  3) Ingest all repos into meta/aggregated_files.jsonl
+  4) Run repair_repos.py to generate repair plans (per repo)
 
-Usage (from StegDB root):
+Usage:
 
-    python tools/run_full_cycle.py
+  # All repos
+  python tools/run_full_cycle.py --all
 
-Or specify a custom CosDen location:
-
-    python tools/run_full_cycle.py --cosden-root ../CosDen
+  # Single repo
+  python tools/run_full_cycle.py --repo CosDen
 """
 
+from __future__ import annotations
+
 import argparse
+import json
 import subprocess
 from pathlib import Path
+from typing import Dict, Any, Iterable
+
 
 STEGBDB_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_COSDEN_ROOT = STEGBDB_ROOT.parent / "CosDen"
+CONFIG_PATH = STEGBDB_ROOT / "tools" / "repos_config.json"
 
 
-def run(cmd, cwd: Path) -> None:
-    print(f"\n▶ Running: {' '.join(cmd)}  (in {cwd})")
-    subprocess.run(cmd, cwd=str(cwd), check=True)
-    print("   ✓ Done")
+def load_config() -> Dict[str, Any]:
+    with CONFIG_PATH.open("r", encoding="utf-8") as f:
+        return json.load(f)
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Run full StegDB cycle for CosDen."
+def run(cmd: Iterable[str], cwd: Path | None = None) -> None:
+    cmd_list = list(cmd)
+    print(f"▶ Running: {' '.join(cmd_list)} (cwd={cwd or STEGBDB_ROOT})")
+    subprocess.run(cmd_list, cwd=str(cwd or STEGBDB_ROOT), check=True)
+
+
+def export_canonical(repo_name: str, cfg: Dict[str, Any]) -> None:
+    slug = cfg["slug"]
+    local_clone = cfg["local_clone_dir"]
+
+    if repo_name == "CosDen":
+        # CosDen-specific exporter for now.
+        script = STEGBDB_ROOT / "export_cosden_canonical.py"
+        if not script.exists():
+            print("⚠ export_cosden_canonical.py missing; skipping export.")
+            return
+        run(
+            [
+                "python",
+                str(script),
+                "--cosden-root",
+                str((STEGBDB_ROOT / local_clone).resolve()),
+            ],
+            cwd=STEGBDB_ROOT,
+        )
+    else:
+        # Placeholder for future repos
+        print(f"⚠ No canonical export script wired for repo {repo_name}, skipping.")
+
+
+def generate_metadata(repo_name: str, cfg: Dict[str, Any]) -> None:
+    local_clone = cfg["local_clone_dir"]
+    metadata_file = cfg["metadata_file"]
+
+    run(
+        [
+            "python",
+            "tools/generate_repo_metadata.py",
+            "--repo-name",
+            repo_name,
+            "--repo-root",
+            str(STEGBDB_ROOT / local_clone),
+            "--output",
+            metadata_file,
+        ],
+        cwd=STEGBDB_ROOT,
     )
-    parser.add_argument(
-        "--cosden-root",
-        type=str,
-        default=str(DEFAULT_COSDEN_ROOT),
-        help="Path to the CosDen repo (default: ../CosDen)",
+
+
+def ingest_all_metadata() -> None:
+    run(
+        [
+            "python",
+            "tools/ingest_repo_metadata.py",
+        ],
+        cwd=STEGBDB_ROOT,
     )
-    return parser.parse_args()
+
+
+def run_repairs() -> None:
+    script = STEGBDB_ROOT / "tools" / "repair_repos.py"
+    if not script.exists():
+        print("⚠ repair_repos.py not found; skipping repairs.")
+        return
+    run(
+        [
+            "python",
+            "tools/repair_repos.py",
+        ],
+        cwd=STEGBDB_ROOT,
+    )
+
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser()
+    group = p.add_mutually_exclusive_group(required=True)
+    group.add_argument("--all", action="store_true", help="Run for all configured repos.")
+    group.add_argument("--repo", help="Run for a single repo (e.g. CosDen).")
+    return p.parse_args()
 
 
 def main() -> None:
+    cfg = load_config()
     args = parse_args()
-    cosden_root = Path(args.cosden_root).resolve()
 
-    print("\n🌀 StegDB Full Cycle (CosDen)\n")
-    print(f"CosDen root: {cosden_root}")
-    print(f"StegDB root: {STEGBDB_ROOT}\n")
+    if args.all:
+        target_repos = list(cfg.keys())
+    else:
+        if args.repo not in cfg:
+            raise SystemExit(f"Unknown repo {args.repo!r} (not in repos_config.json).")
+        target_repos = [args.repo]
 
-    # 1) Export canonical files from CosDen into StegDB
-    run(
-        ["python", "tools/export_cosden_canonical.py", "--cosden-root", str(cosden_root)],
-        cwd=STEGBDB_ROOT,
-    )
+    print("🧠 StegDB Full Cycle")
+    print(f"   Repos: {', '.join(target_repos)}\n")
 
-    # 2) Generate metadata for CosDen (meta/files.jsonl inside CosDen)
-    run(
-        ["python", "tools/generate_repo_metadata.py", "--repo-root", str(cosden_root), "--repo-name", "CosDen"],
-        cwd=STEGBDB_ROOT,
-    )
+    for repo_name in target_repos:
+        rcfg = cfg[repo_name]
+        print(f"===== {repo_name}: export canonical =====")
+        export_canonical(repo_name, rcfg)
 
-    # 3) Ingest repo metadata (from all repos with meta/files.jsonl)
-    run(
-        ["python", "tools/ingest_repo_metadata.py"],
-        cwd=STEGBDB_ROOT,
-    )
+        print(f"===== {repo_name}: generate metadata =====")
+        generate_metadata(repo_name, rcfg)
+        print()
 
-    # 4) Generate repair plans (CosDen for now)
-    run(
-        ["python", "tools/repair_repos.py"],
-        cwd=STEGBDB_ROOT,
-    )
+    print("===== Ingest all repo metadata =====")
+    ingest_all_metadata()
 
-    print("\n✅ Full cycle complete.\n")
+    print("===== Run repair engine =====")
+    run_repairs()
+
+    print("✅ Full cycle complete.")
 
 
 if __name__ == "__main__":
