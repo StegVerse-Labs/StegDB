@@ -1,0 +1,12 @@
+{
+  "repos": [
+    {
+      "name": "CosDen",
+      "path": "CosDen",
+      "canonical_path": "canonical/cosden",
+      "prod_valid": false,
+      "last_build_validation": null,
+      "last_prod_validation": null
+    }
+  ]
+}
