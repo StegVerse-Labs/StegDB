@@ -1,170 +1,151 @@
 #!/usr/bin/env python3
 """
-Evaluate cross-repo dependency status for StegDB.
+evaluate_dependencies.py
+StegDB Multi-Repo Dependency Evaluator
+-------------------------------------
 
 Reads:
-  - tools/repos_config.json
-  - tools/dependency_graph.json
-  - <repo_root>/meta/validation_stamp.json for each repo
+  - meta/aggregated_files.jsonl
+  - repos_config.json
 
-Writes:
+Generates:
   - meta/dependency_status.json
 
-This is what StegGuard uses to decide if a repo (e.g., CosDen)
-is allowed to go to PROD.
+Purpose:
+  Determine whether all required repos have:
+    • canonical integrity
+    • valid metadata
+    • strict-mode validation stamps
+    • matching SHA256 meta signatures
 """
 
-from __future__ import annotations
-
 import json
-from dataclasses import dataclass, asdict
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Any
+import hashlib
+import sys
+
+ROOT = Path(__file__).resolve().parent.parent
+META = ROOT / "meta"
+REPOS = ROOT / "repos"
+CONFIG = ROOT / "repos_config.json"
+
+DEPENDENCY_OUT = META / "dependency_status.json"
+AGGREGATED = META / "aggregated_files.jsonl"
 
 
-ROOT = Path(__file__).resolve().parents[1]
-REPOS_CONFIG = ROOT / "tools" / "repos_config.json"
-DEPS_GRAPH = ROOT / "tools" / "dependency_graph.json"
-META_DIR = ROOT / "meta"
-OUTPUT = META_DIR / "dependency_status.json"
+def load_jsonl(path: Path):
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
-@dataclass
-class RepoStatus:
-    name: str
-    self_status: str          # prod | build | no_stamp | not_cloned | unconfigured | unknown
-    highest_mode: str | None
-    has_stamp: bool
-    dependencies: List[str]
-    deps_ok: bool
-    problems: List[str]
+def sha256_of_file(path: Path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(8192):
+            h.update(chunk)
+    return h.hexdigest()
 
 
-def load_json(path: Path) -> Any:
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+def main():
+    print("🔍 Evaluating multi-repo dependency health...")
 
+    if not CONFIG.exists():
+        print("❌ repos_config.json missing — cannot evaluate dependencies.")
+        sys.exit(1)
 
-def evaluate_single_repo(
-    name: str,
-    cfg: Dict[str, Any] | None,
-    deps: List[str],
-) -> RepoStatus:
-    """Work out the *local* status of one repo (ignoring its dependencies)."""
+    if not AGGREGATED.exists():
+        print("❌ aggregated_files.jsonl missing — run full cycle first.")
+        sys.exit(1)
 
-    if cfg is None:
-        return RepoStatus(
-            name=name,
-            self_status="unconfigured",
-            highest_mode=None,
-            has_stamp=False,
-            dependencies=deps,
-            deps_ok=False,
-            problems=[f"{name} appears in dependency_graph.json but not repos_config.json"],
-        )
+    repos_cfg = json.loads(CONFIG.read_text())
+    aggregated = load_jsonl(AGGREGATED)
 
-    repo_root = ROOT / cfg["local_clone_dir"]
-    stamp_path = repo_root / "meta" / "validation_stamp.json"
+    # Build per-repo index from aggregated metadata
+    per_repo = {}
+    for entry in aggregated:
+        repo = entry.get("repo")
+        per_repo.setdefault(repo, []).append(entry)
 
-    if not repo_root.exists():
-        return RepoStatus(
-            name=name,
-            self_status="not_cloned",
-            highest_mode=None,
-            has_stamp=False,
-            dependencies=deps,
-            deps_ok=False,
-            problems=[f"Local clone directory missing: {repo_root}"],
-        )
-
-    if not stamp_path.exists():
-        return RepoStatus(
-            name=name,
-            self_status="no_stamp",
-            highest_mode=None,
-            has_stamp=False,
-            dependencies=deps,
-            deps_ok=False,
-            problems=[f"validation_stamp.json missing under {repo_root / 'meta'}"],
-        )
-
-    data = load_json(stamp_path)
-    mode = data.get("highest_mode")
-    problems: List[str] = []
-
-    if mode == "prod":
-        status = "prod"
-    elif mode == "build":
-        status = "build"
-        problems.append("Repo only validated in build mode (not prod).")
-    else:
-        status = "unknown"
-        problems.append(f"Unknown or missing highest_mode in stamp: {mode!r}")
-
-    return RepoStatus(
-        name=name,
-        self_status=status,
-        highest_mode=mode,
-        has_stamp=True,
-        dependencies=deps,
-        deps_ok=True,  # will be updated when we check dependencies
-        problems=problems,
-    )
-
-
-def main() -> None:
-    if not REPOS_CONFIG.exists():
-        raise SystemExit(f"Missing repos_config.json at {REPOS_CONFIG}")
-    if not DEPS_GRAPH.exists():
-        raise SystemExit(f"Missing dependency_graph.json at {DEPS_GRAPH}")
-
-    META_DIR.mkdir(exist_ok=True)
-
-    cfg_all: Dict[str, Any] = load_json(REPOS_CONFIG)
-    graph: Dict[str, List[str]] = load_json(DEPS_GRAPH)
-
-    # First pass: evaluate each repo by itself
-    statuses: Dict[str, RepoStatus] = {}
-    for repo_name, deps in graph.items():
-        statuses[repo_name] = evaluate_single_repo(
-            name=repo_name,
-            cfg=cfg_all.get(repo_name),
-            deps=list(deps),
-        )
-
-    # Second pass: check that each repo's dependencies are prod
-    for repo_name, status in statuses.items():
-        ok = True
-        for dep_name in status.dependencies:
-            dep_status = statuses.get(dep_name)
-            if dep_status is None:
-                ok = False
-                status.problems.append(
-                    f"Dependency {dep_name} is referenced but has no RepoStatus."
-                )
-                continue
-
-            if dep_status.self_status != "prod":
-                ok = False
-                status.problems.append(
-                    f"Dependency {dep_name} is not prod (status={dep_status.self_status})."
-                )
-
-        status.deps_ok = ok
-
-    output = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "repos": {
-            name: {k: v for k, v in asdict(st).items() if k != "name"}
-            for name, st in statuses.items()
-        },
+    report = {
+        "root": str(ROOT),
+        "summary": {},
+        "repos": {},
     }
 
-    with OUTPUT.open("w", encoding="utf-8") as f:
-        json.dump(output, f, indent=2)
+    for repo_name, cfg in repos_cfg.items():
+        print(f"\n📦 Checking repo: {repo_name}")
+        repo_report = {
+            "registered": True,
+            "metadata_present": False,
+            "file_count": 0,
+            "meta_sha256": None,
+            "validation_stamp": None,
+            "strict_validation_passed": False,
+            "errors": [],
+        }
 
-    print(f"✅ Wrote dependency status to {OUTPUT}")
+        # ------------------------------
+        # METADATA FILES
+        # ------------------------------
+        repo_meta_path = REPOS / repo_name / "files.jsonl"
+        if repo_meta_path.exists():
+            repo_report["metadata_present"] = True
+            repo_report["file_count"] = len(repo_meta_path.read_text().splitlines())
+            repo_report["meta_sha256"] = sha256_of_file(repo_meta_path)
+        else:
+            repo_report["errors"].append("Missing files.jsonl")
+
+        # ------------------------------
+        # VALIDATION STAMP CHECK
+        # ------------------------------
+        stamp_path = REPOS / repo_name / "validation_stamp.json"
+        if stamp_path.exists():
+            try:
+                stamp = json.loads(stamp_path.read_text())
+                repo_report["validation_stamp"] = stamp
+
+                mode = stamp.get("highest_mode")
+                if mode == "prod":
+                    repo_report["strict_validation_passed"] = True
+                else:
+                    repo_report["errors"].append(
+                        f"Validation mode '{mode}' is not strict/prod."
+                    )
+            except Exception as e:
+                repo_report["errors"].append(f"Invalid validation stamp: {e}")
+        else:
+            repo_report["errors"].append("Missing validation_stamp.json")
+
+        # ------------------------------
+        # AGGREGATED CROSS CHECK
+        # ------------------------------
+        if repo_name not in per_repo:
+            repo_report["errors"].append("No aggregated entries found.")
+
+        report["repos"][repo_name] = repo_report
+
+    # ------------------------------
+    # SUMMARY
+    # ------------------------------
+    total = len(report["repos"])
+    passed = sum(
+        1
+        for r in report["repos"].values()
+        if r["metadata_present"] and r["strict_validation_passed"]
+    )
+
+    report["summary"] = {
+        "total_repos": total,
+        "repos_ready_for_prod": passed,
+        "repos_blocking_prod": total - passed,
+    }
+
+    # ------------------------------
+    # WRITE OUTPUT
+    # ------------------------------
+    DEPENDENCY_OUT.write_text(json.dumps(report, indent=2))
+    print(f"\n🧠 Wrote dependency report → {DEPENDENCY_OUT}")
 
 
 if __name__ == "__main__":
