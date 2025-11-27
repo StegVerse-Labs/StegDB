@@ -8,6 +8,7 @@ For each configured repo:
   2) Generate per-repo metadata files.jsonl
   3) Ingest all repos into meta/aggregated_files.jsonl
   4) Run repair_repos.py to generate repair plans (per repo)
+  5) Evaluate cross-repo dependency status
 
 Usage:
 
@@ -47,7 +48,6 @@ def export_canonical(repo_name: str, cfg: Dict[str, Any]) -> None:
     local_clone = cfg["local_clone_dir"]
 
     if repo_name == "CosDen":
-        # CosDen-specific exporter for now.
         script = STEGBDB_ROOT / "export_cosden_canonical.py"
         if not script.exists():
             print("⚠ export_cosden_canonical.py missing; skipping export.")
@@ -62,7 +62,6 @@ def export_canonical(repo_name: str, cfg: Dict[str, Any]) -> None:
             cwd=STEGBDB_ROOT,
         )
     else:
-        # Placeholder for future repos
         print(f"⚠ No canonical export script wired for repo {repo_name}, skipping.")
 
 
@@ -109,6 +108,20 @@ def run_repairs() -> None:
     )
 
 
+def evaluate_dependencies() -> None:
+    script = STEGBDB_ROOT / "tools" / "evaluate_dependencies.py"
+    if not script.exists():
+        print("⚠ evaluate_dependencies.py not found; skipping dependency evaluation.")
+        return
+    run(
+        [
+            "python",
+            "tools/evaluate_dependencies.py",
+        ],
+        cwd=STEGBDB_ROOT,
+    )
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     group = p.add_mutually_exclusive_group(required=True)
@@ -145,6 +158,9 @@ def main() -> None:
 
     print("===== Run repair engine =====")
     run_repairs()
+
+    print("===== Evaluate cross-repo dependencies =====")
+    evaluate_dependencies()
 
     print("✅ Full cycle complete.")
 
