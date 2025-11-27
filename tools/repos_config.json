@@ -6,6 +6,38 @@
     "requires_canonical_export": true,
     "canonical_export_path": "canonical/cosden",
     "metadata_path": "repos/CosDen/files.jsonl",
-    "validation_stamp_path": "repos/CosDen/validation_stamp.json"
+    "validation_stamp_path": "repos/CosDen/validation_stamp.json",
+    "enabled": true
+  },
+
+  "StegCore": {
+    "root": "StegCore",
+    "description": "Central StegVerse core logic and orchestration.",
+    "requires_strict_validation": true,
+    "requires_canonical_export": true,
+    "canonical_export_path": "canonical/stegcore",
+    "metadata_path": "repos/StegCore/files.jsonl",
+    "validation_stamp_path": "repos/StegCore/validation_stamp.json",
+    "enabled": false
+  },
+
+  "StegTalk": {
+    "root": "StegTalk",
+    "description": "Secure messaging / comms stack.",
+    "requires_strict_validation": true,
+    "requires_canonical_export": false,
+    "metadata_path": "repos/StegTalk/files.jsonl",
+    "validation_stamp_path": "repos/StegTalk/validation_stamp.json",
+    "enabled": false
+  },
+
+  "StegDB": {
+    "root": ".",
+    "description": "The StegDB central file DB itself (self-hosted metadata).",
+    "requires_strict_validation": false,
+    "requires_canonical_export": false,
+    "metadata_path": "repos/StegDB/files.jsonl",
+    "validation_stamp_path": "repos/StegDB/validation_stamp.json",
+    "enabled": false
   }
 }
