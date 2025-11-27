@@ -1,78 +1,108 @@
+#!/usr/bin/env python3
+"""
+StegDB multi-repo dependency evaluator.
+
+Inputs:
+- meta/aggregated_files.jsonl  (from full-cycle)
+- tools/repos_config.json      (declares known repos)
+
+Output:
+- meta/dependency_status.json
+"""
+
 import json
-import sys
 from pathlib import Path
+from datetime import datetime, timezone
 
-ROOT = Path(__file__).resolve().parents[1]
-META_DIR = ROOT / "meta"
-TOOLS_DIR = ROOT / "tools"
-
-AGGREGATED = META_DIR / "aggregated_files.jsonl"
-GRAPH_OUT = TOOLS_DIR / "dependency_graph.json"
-STATUS_OUT = META_DIR / "dependency_status.json"
+ROOT = Path(__file__).resolve().parent.parent
+META = ROOT / "meta"
+TOOLS = ROOT / "tools"
+NOW = datetime.now(timezone.utc).isoformat()
 
 
-def load_aggregated():
-    if not AGGREGATED.exists():
-        return []
-
-    records = []
-    with open(AGGREGATED, "r") as f:
-        for line in f:
-            try:
-                records.append(json.loads(line))
-            except json.JSONDecodeError:
-                pass
-    return records
+def load_json(path: Path):
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception as e:
+        return {"_error": f"failed_to_parse:{type(e).__name__}", "_details": str(e)}
 
 
-def build_dependency_graph(records):
-    graph = {}
-    for r in records:
-        repo = r.get("repo", "UNKNOWN")
-        graph.setdefault(repo, {"files": []})
-        graph[repo]["files"].append(r.get("path", ""))
-    return graph
+def count_aggregated_records() -> int:
+    agg = META / "aggregated_files.jsonl"
+    if not agg.is_file():
+        return 0
+    return sum(1 for _ in agg.open("r", encoding="utf-8"))
 
 
-def evaluate_health(graph):
-    status = {"overall_status": "ok", "repos": {}}
-
-    for repo, data in graph.items():
-        file_count = len(data.get("files", []))
-
-        if file_count == 0:
-            status["repos"][repo] = {
-                "status": "no_metadata",
-                "files_indexed": 0,
-                "reason": "Repository has no metadata entries."
-            }
-            status["overall_status"] = "warning"
-        else:
-            status["repos"][repo] = {
-                "status": "ok",
-                "files_indexed": file_count
-            }
-
-    return status
+def load_repos_config():
+    cfg_path = TOOLS / "repos_config.json"
+    cfg = load_json(cfg_path) or {}
+    return cfg.get("repos") or {}
 
 
-def main():
-    META_DIR.mkdir(parents=True, exist_ok=True)
+def evaluate():
+    repos_cfg = load_repos_config()
+    aggregated_count = count_aggregated_records()
 
-    records = load_aggregated()
-    graph = build_dependency_graph(records)
-    status = evaluate_health(graph)
+    issues = []
+    repos_status = {}
 
-    with open(GRAPH_OUT, "w") as f:
-        json.dump(graph, f, indent=2)
+    if not repos_cfg:
+        issues.append({
+            "repo": "_stegdb",
+            "severity": "warning",
+            "message": "repos_config.json is empty or missing; no multi-repo deps defined."
+        })
 
-    with open(STATUS_OUT, "w") as f:
-        json.dump(status, f, indent=2)
+    # Very simple signal for now:
+    # - if aggregated_files.jsonl is missing / empty, global is "degraded"
+    # - per-repo we just mark "unknown" but include that as a warning
+    if aggregated_count == 0:
+        issues.append({
+            "repo": "_stegdb",
+            "severity": "error",
+            "message": "aggregated_files.jsonl missing or empty; run full-cycle in StegDB."
+        })
+        global_ok = False
+    else:
+        global_ok = True
 
-    print("Dependency evaluation complete.")
-    print(f"Wrote graph → {GRAPH_OUT}")
-    print(f"Wrote status → {STATUS_OUT}")
+    for name, cfg in repos_cfg.items():
+        critical = bool(cfg.get("critical", False))
+
+        # For now we only know that the repo is registered; we’ll refine later
+        status = "ok" if aggregated_count > 0 else "unknown"
+
+        repos_status[name] = {
+            "status": status,
+            "critical": critical,
+        }
+
+        if critical and aggregated_count == 0:
+            issues.append({
+                "repo": name,
+                "severity": "error",
+                "message": "critical repo registered but no aggregated metadata present."
+            })
+            global_ok = False
+
+    result = {
+        "generated_at": NOW,
+        "global_ok": global_ok,
+        "aggregated_records": aggregated_count,
+        "repos": repos_status,
+        "issues": issues,
+    }
+
+    META.mkdir(parents=True, exist_ok=True)
+    (META / "dependency_status.json").write_text(
+        json.dumps(result, indent=2), encoding="utf-8"
+    )
+
+    print(f"[StegDB] Wrote dependency_status.json (global_ok={global_ok})")
 
 
 if __name__ == "__main__":
-    main()
+    evaluate()
