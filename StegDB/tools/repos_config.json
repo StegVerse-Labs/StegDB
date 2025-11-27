@@ -1,0 +1,11 @@
+{
+  "CosDen": {
+    "root": "CosDen",
+    "description": "CosDenOS root repository wired into StegDB canonical DB.",
+    "requires_strict_validation": true,
+    "requires_canonical_export": true,
+    "canonical_export_path": "canonical/cosden",
+    "metadata_path": "repos/CosDen/files.jsonl",
+    "validation_stamp_path": "repos/CosDen/validation_stamp.json"
+  }
+}
