@@ -1,0 +1,154 @@
+{
+  "version": 1,
+  "default_profiles": ["base"],
+  "repos": [
+    {
+      "name": "StegVerse-Labs/StegDB",
+      "profiles": ["base"]
+    },
+    {
+      "name": "StegVerse-Labs/StegBrain",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/StegDB",
+      "profiles": ["base"]
+    },
+    {
+      "name": "StegVerse-Labs/StegBrain",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/StegBrain",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/StegDB",
+      "profiles": ["base"]
+    },
+    {
+      "name": "StegVerse-Labs/StegBrain",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/StegBrain",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/StegDB",
+      "profiles": ["base"]
+    },
+    {
+      "name": "StegVerse-Labs/StegBrain",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/StegBrain",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/StegDB",
+      "profiles": ["base"]
+    },
+    {
+      "name": "StegVerse-Labs/StegBrain",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/StegBrain",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/StegDB",
+      "profiles": ["base"]
+    },
+    {
+      "name": "StegVerse-Labs/StegBrain",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/StegBrain",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/StegDB",
+      "profiles": ["base"]
+    },
+    {
+      "name": "StegVerse-Labs/3I-Atlas",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/StegCore",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/StegTalk",
+      "profiles": ["base"]
+    },
+    {
+      "name": "StegVerse-Labs/CosDen",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/SDE",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/FREE_DOM_Ops",
+      "profiles": ["base"]
+    },
+    {
+      "name": "StegVerse-Labs/FREE-DOM_Books",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/FREE-DOM",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/Guiffreality",
+      "profiles": ["base"]
+    },
+    {
+      "name": "StegVerse-Labs/Maxwell-ality",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/Biography",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/Epsteinality",
+      "profiles": ["base"]
+    },
+    {
+      "name": "StegVerse-Labs/Trumpality",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/SCW",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/StegVerse-SCW",
+      "profiles": ["base"]
+    },
+    {
+      "name": "StegVerse-Labs/TV",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/TVC",
+      "profiles": ["base", "ops"]
+    },
+    {
+      "name": "StegVerse-Labs/Value",
+      "profiles": ["base"]
+    },
+    {
+      "name": "StegVerse-Labs/HouseHold",
+      "profiles": ["base", "ops"]
+    }
+  ]
+}
