@@ -4,7 +4,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   bootstrap:
@@ -12,7 +12,7 @@ jobs:
 
     env:
       ORG_NAME: StegVerse
-      DISPATCH_EVENT: sync-to-canonical
+      GH_TOKEN: ${{ secrets.GH_MULTI_REPO_PAT }}
 
     steps:
       - name: Checkout StegDB
@@ -20,66 +20,111 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Fail if GH token missing
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error title=Missing repo secret::GH_MULTI_REPO_PAT is not set in StegDB repo secrets."
+            exit 2
+          fi
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Validate required secret
+      - name: Bootstrap canonical workflow to org repos (PAT required)
         shell: bash
         run: |
           set -euo pipefail
 
-          if [[ -z "${GH_MULTI_REPO_PAT:-}" ]]; then
-            echo "::error title=Missing secret::GH_MULTI_REPO_PAT is not set in StegDB repo or org secrets."
+          # This expects you already maintain tools/repos_config.json in StegDB
+          if [[ ! -f "tools/repos_config.json" ]]; then
+            echo "::error title=Missing config::tools/repos_config.json not found."
             exit 2
           fi
 
-      - name: Load repo list
-        id: repos
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          CONFIG="tools/repos_config.json"
-          if [[ ! -f "$CONFIG" ]]; then
-            echo "::error title=Missing repos_config.json::tools/repos_config.json not found."
-            exit 1
-          fi
-
           python - <<'PY'
-          import json
-          with open("tools/repos_config.json","r",encoding="utf-8") as f:
-              data=json.load(f)
+          import json, os, base64, urllib.request
+          from pathlib import Path
 
-          repos=[
-              r["name"] for r in data.get("repos",[])
-              if r["name"] not in ("StegDB",)
-          ]
+          token = os.environ["GH_TOKEN"]
+          org = os.environ.get("ORG_NAME","StegVerse")
 
+          cfg = json.loads(Path("tools/repos_config.json").read_text(encoding="utf-8"))
+          repos = [r["name"] for r in cfg.get("repos", []) if isinstance(r, dict) and r.get("name")]
           if not repos:
-              raise SystemExit("No repos to dispatch.")
+              raise SystemExit("No repos found in tools/repos_config.json")
 
-          print("repos=" + " ".join(repos))
-          PY >> "$GITHUB_OUTPUT"
+          # The canonical workflow file stored in StegDB canonical/
+          # You can change this path to whatever you want distributed.
+          src_path = Path("canonical/.github/workflows/sync-to-canonical.yml")
+          if not src_path.exists():
+              raise SystemExit(f"Missing canonical workflow source: {src_path}")
 
-      - name: Dispatch canonical sync to org repos
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GH_MULTI_REPO_PAT }}
-        run: |
-          set -euo pipefail
+          content_b64 = base64.b64encode(src_path.read_bytes()).decode("utf-8")
 
-          for repo in ${{ steps.repos.outputs.repos }}; do
-            echo "🚀 Dispatching canonical sync to $repo"
+          def api_put(path, payload):
+              url = f"https://api.github.com{path}"
+              req = urllib.request.Request(
+                  url,
+                  data=json.dumps(payload).encode("utf-8"),
+                  method="PUT",
+                  headers={
+                      "Authorization": f"token {token}",
+                      "Accept": "application/vnd.github+json",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              with urllib.request.urlopen(req) as resp:
+                  return json.load(resp)
 
-            curl -fsSL -X POST \
-              -H "Authorization: token ${GH_TOKEN}" \
-              -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${ORG_NAME}/${repo}/dispatches" \
-              -d "{\"event_type\":\"${DISPATCH_EVENT}\"}" \
-              || echo "::warning::Dispatch failed for ${repo}"
-          done
+          def api_get(path):
+              url = f"https://api.github.com{path}"
+              req = urllib.request.Request(
+                  url,
+                  method="GET",
+                  headers={
+                      "Authorization": f"token {token}",
+                      "Accept": "application/vnd.github+json",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              with urllib.request.urlopen(req) as resp:
+                  return json.load(resp)
 
-      - name: Done
-        run: echo "✅ Canonical bootstrap dispatch complete."
+          target_path = ".github/workflows/sync-to-canonical.yml"
+
+          ok = 0
+          fail = 0
+          for name in repos:
+              full = f"{org}/{name}"
+              try:
+                  # Get existing file SHA if present
+                  sha = None
+                  try:
+                      existing = api_get(f"/repos/{full}/contents/{target_path}")
+                      sha = existing.get("sha")
+                  except Exception:
+                      sha = None
+
+                  payload = {
+                      "message": "chore: bootstrap canonical workflow (sync-to-canonical)",
+                      "content": content_b64,
+                      "branch": "main",
+                  }
+                  if sha:
+                      payload["sha"] = sha
+
+                  api_put(f"/repos/{full}/contents/{target_path}", payload)
+                  print(f"✅ Bootstrapped: {full}/{target_path}")
+                  ok += 1
+              except Exception as e:
+                  print(f"❌ Failed: {full} -> {e}")
+                  fail += 1
+
+          print(f"\nDone. ok={ok} fail={fail}")
+          if fail:
+              raise SystemExit(2)
+          PY
