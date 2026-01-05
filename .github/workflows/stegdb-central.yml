@@ -11,36 +11,29 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # Personal access token / org token that can read the StegVerse org.
-      # Make sure this secret exists in the StegDB repo settings.
       GH_TOKEN: ${{ secrets.GH_STEGVERSE_PAT_FG }}
       ORG_NAME: StegVerse
 
     steps:
-      # 1. Checkout StegDB (this repo)
       - name: Checkout StegDB
         uses: actions/checkout@v4
 
-      # 2. Checkout CosDen so we can export its canonical files
       - name: Checkout CosDen
         uses: actions/checkout@v4
         with:
           repository: StegVerse/CosDen
           path: CosDen
 
-      # 3. Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # 4. Ensure base directories exist
       - name: Ensure StegDB directories
         run: |
           mkdir -p meta repairs repos canonical
           touch meta/.gitkeep repairs/.gitkeep repos/.gitkeep
 
-      # 5. Auto-discover StegVerse repos and write tools/repos_config.json
       - name: Discover StegVerse repos
         run: |
           python - << 'PY'
@@ -70,15 +63,9 @@ jobs:
 
           repos = []
           for repo in data:
-              # Skip archived repos for now
               if repo.get("archived"):
                   continue
-              repos.append(
-                  {
-                      "name": repo["name"],
-                      "url": repo["clone_url"],
-                  }
-              )
+              repos.append({"name": repo["name"], "url": repo["clone_url"]})
 
           tools_dir = Path("tools")
           tools_dir.mkdir(exist_ok=True)
@@ -90,6 +77,66 @@ jobs:
               print(f" - {r['name']}")
           PY
 
-      # 6. Run the StegDB full cycle (export, metadata, repair, dependency eval)
       - name: Run StegDB Full Cycle
         run: python tools/run_full_cycle.py
+
+      - name: Write dependency status (always)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p meta
+
+          STATE="ok"
+          REASON="healthy"
+          if [[ "${{ job.status }}" != "success" ]]; then
+            STATE="broken"
+            REASON="workflow-failure"
+          fi
+
+          HAS_AGG=false
+          if [[ -s "meta/aggregated_files.jsonl" ]]; then
+            HAS_AGG=true
+          fi
+
+          if [[ -f "scripts/write_dependency_status.py" ]]; then
+            python scripts/write_dependency_status.py \
+              --state "$STATE" \
+              --reason "$REASON" \
+              --details "{\"workflow\":\"${{ github.workflow }}\",\"job\":\"${{ github.job }}\",\"job_status\":\"${{ job.status }}\"}" \
+              $( $HAS_AGG && echo "--has-aggregated-files" || true )
+          else
+            cat > meta/dependency_status.json <<EOF
+          {
+            "provider": "StegDB",
+            "state": "${STATE}",
+            "reason": "${REASON}",
+            "generated_at_utc": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "artifacts": { "aggregated_files_jsonl": ${HAS_AGG} },
+            "details": {
+              "workflow": "${{ github.workflow }}",
+              "job": "${{ github.job }}",
+              "job_status": "${{ job.status }}"
+            }
+          }
+          EOF
+          fi
+
+      - name: Commit and push meta + status (always)
+        if: always() && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add meta/*.json meta/*.jsonl tools/repos_config.json 2>/dev/null || true
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore(meta): update central cycle outputs [skip ci]"
+          git push
