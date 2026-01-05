@@ -3,6 +3,9 @@ name: stegdb-ingest-only
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   ingest-only:
     runs-on: ubuntu-latest
@@ -25,3 +28,62 @@ jobs:
         run: |
           python tools/ingest_repo_metadata.py
           python tools/evaluate_dependencies.py
+
+      - name: Write dependency status (always)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p meta
+
+          STATE="ok"
+          REASON="healthy"
+          if [[ "${{ job.status }}" != "success" ]]; then
+            STATE="broken"
+            REASON="workflow-failure"
+          fi
+
+          HAS_AGG=false
+          if [[ -s "meta/aggregated_files.jsonl" ]]; then
+            HAS_AGG=true
+          fi
+
+          if [[ -f "scripts/write_dependency_status.py" ]]; then
+            python scripts/write_dependency_status.py \
+              --state "$STATE" \
+              --reason "$REASON" \
+              --details "{\"workflow\":\"${{ github.workflow }}\",\"job\":\"${{ github.job }}\",\"job_status\":\"${{ job.status }}\"}" \
+              $( $HAS_AGG && echo "--has-aggregated-files" || true )
+          else
+            cat > meta/dependency_status.json <<EOF
+          {
+            "provider": "StegDB",
+            "state": "${STATE}",
+            "reason": "${REASON}",
+            "generated_at_utc": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "artifacts": { "aggregated_files_jsonl": ${HAS_AGG} },
+            "details": {
+              "workflow": "${{ github.workflow }}",
+              "job": "${{ github.job }}",
+              "job_status": "${{ job.status }}"
+            }
+          }
+          EOF
+          fi
+
+      - name: Commit dependency status (always)
+        if: always() && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add meta/dependency_status.json meta/*.json meta/*.jsonl 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore(meta): update ingest-only outputs [skip ci]"
+          git push
