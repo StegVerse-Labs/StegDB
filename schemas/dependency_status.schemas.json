@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StegDB Dependency Status",
+  "type": "object",
+  "required": ["state", "generated_at_utc", "provider", "reason"],
+  "properties": {
+    "provider": { "type": "string", "const": "StegDB" },
+    "state": { "type": "string", "enum": ["ok", "degraded", "broken"] },
+    "reason": { "type": "string" },
+    "generated_at_utc": { "type": "string", "format": "date-time" },
+    "artifacts": {
+      "type": "object",
+      "properties": {
+        "aggregated_files_jsonl": { "type": "boolean" },
+        "canonical_bundle_sha256": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "details": { "type": "object" }
+  },
+  "additionalProperties": true
+}
