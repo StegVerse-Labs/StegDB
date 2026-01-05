@@ -3,6 +3,9 @@ name: StegDB Full Cycle (Self-Healing)
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   full-cycle:
     runs-on: ubuntu-latest
@@ -122,7 +125,6 @@ jobs:
 
     # -------------------------
     # 10. Verify key artifacts (first pass)
-    #     If this fails, we drop into the self-heal step.
     # -------------------------
     - name: Verify artifacts (first pass)
       id: verify_first
@@ -201,10 +203,63 @@ jobs:
         fi
 
     # -------------------------
+    # 12.5 ALWAYS write dependency_status.json (fail-closed)
+    # -------------------------
+    - name: Write dependency status (always)
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p meta
+
+        STATE="ok"
+        REASON="healthy"
+
+        # If the job failed anywhere, fail-closed for prod gating.
+        if [[ "${{ job.status }}" != "success" ]]; then
+          STATE="broken"
+          REASON="workflow-failure"
+        fi
+
+        HAS_AGG=false
+        if [[ -s "meta/aggregated_files.jsonl" ]]; then
+          HAS_AGG=true
+        fi
+
+        # Prefer the writer if present; otherwise write minimal JSON.
+        if [[ -f "scripts/write_dependency_status.py" ]]; then
+          python scripts/write_dependency_status.py \
+            --state "$STATE" \
+            --reason "$REASON" \
+            --details "{\"workflow\":\"${{ github.workflow }}\",\"job\":\"${{ github.job }}\",\"job_status\":\"${{ job.status }}\"}" \
+            $( $HAS_AGG && echo "--has-aggregated-files" || true )
+        else
+          cat > meta/dependency_status.json <<EOF
+        {
+          "provider": "StegDB",
+          "state": "${STATE}",
+          "reason": "${REASON}",
+          "generated_at_utc": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+          "artifacts": {
+            "aggregated_files_jsonl": ${HAS_AGG}
+          },
+          "details": {
+            "workflow": "${{ github.workflow }}",
+            "job": "${{ github.job }}",
+            "job_status": "${{ job.status }}"
+          }
+        }
+        EOF
+        fi
+
+        echo "Wrote meta/dependency_status.json:"
+        cat meta/dependency_status.json
+
+    # -------------------------
     # 13. Commit & push meta/ + dependency_status.json
     # -------------------------
     - name: Commit and push StegDB meta
-      if: github.ref == 'refs/heads/main'
+      if: always() && github.ref == 'refs/heads/main'
       run: |
         set -e
         echo "===== Commit & push meta ====="
@@ -220,7 +275,7 @@ jobs:
         fi
 
         git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
         git commit -m "Update StegDB meta & dependency status [skip ci]" || {
           echo "Nothing to commit."
@@ -233,4 +288,5 @@ jobs:
     # 14. Done
     # -------------------------
     - name: Done
+      if: always()
       run: echo "🎉 Full cycle (self-healing) complete."
