@@ -1,0 +1,82 @@
+name: publish-canonical
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "canonical/**"
+      - ".github/workflows/publish-canonical.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure canonical exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -d "canonical" ]]; then
+            echo "::error title=Missing canonical directory::StegDB must contain a /canonical folder."
+            exit 2
+          fi
+
+      - name: Build canonical bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f canonical-bundle.zip canonical-bundle.sha256
+
+          # Zip the canonical folder (stable, reproducible-ish ordering)
+          python - <<'PY'
+          import os, zipfile
+          from pathlib import Path
+
+          root = Path("canonical")
+          zname = Path("canonical-bundle.zip")
+
+          with zipfile.ZipFile(zname, "w", compression=zipfile.ZIP_DEFLATED) as z:
+            for p in sorted(root.rglob("*")):
+              if p.is_dir():
+                continue
+              z.write(p, p.as_posix())  # keep paths like canonical/...
+          print(f"Wrote {zname} ({zname.stat().st_size} bytes)")
+          PY
+
+          sha=$(sha256sum canonical-bundle.zip | awk '{print $1}')
+          echo "$sha  canonical-bundle.zip" > canonical-bundle.sha256
+          echo "sha256=$sha" >> "$GITHUB_ENV"
+
+      - name: Upload artifact (CI trace)
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-bundle
+          path: |
+            canonical-bundle.zip
+            canonical-bundle.sha256
+          if-no-files-found: error
+
+      - name: Publish/Update rolling Release assets (canonical-latest)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: canonical-latest
+          name: canonical-latest
+          body: |
+            Rolling canonical bundle for StegVerse repos.
+
+            - sha256: ${{ env.sha256 }}
+            - generated: ${{ github.run_id }}
+
+            Download:
+            - canonical-bundle.zip
+            - canonical-bundle.sha256
+          prerelease: false
+          files: |
+            canonical-bundle.zip
+            canonical-bundle.sha256
