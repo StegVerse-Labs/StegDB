@@ -20,10 +20,8 @@ jobs:
       CANONICAL_ZIP_URL: "https://github.com/StegVerse-Labs/StegDB/releases/latest/download/canonical-bundle.zip"
       CANONICAL_SHA_URL: "https://github.com/StegVerse-Labs/StegDB/releases/latest/download/canonical-bundle.sha256"
 
-      # Allowlist: only these paths will be synced from canonical into this repo.
-      # Edit per-repo as needed.
       SYNC_PATHS: |
-        .github למד
+        .github
         .github/workflows
         policy
         schema
@@ -44,7 +42,6 @@ jobs:
           echo "Downloaded canonical bundle:"
           ls -lh /tmp/canonical-bundle.zip /tmp/canonical-bundle.sha256
 
-          # Verify checksum
           (cd /tmp && sha256sum -c canonical-bundle.sha256)
 
       - name: Unpack canonical bundle
@@ -61,11 +58,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Read sha
           SHA=$(awk '{print $1}' /tmp/canonical-bundle.sha256)
           echo "Canonical sha256: $SHA"
 
-          # Write lock file (always updated on sync run)
           python - <<PY
           import json, time
           lock = {
@@ -80,10 +75,8 @@ jobs:
           print("Wrote stegverse.canonical.lock.json")
           PY
 
-          # Sync paths (copy/update only; no deletions)
-          # Canonical bundle contains /tmp/canonical/canonical/<path>
           while IFS= read -r p; do
-            p="$(echo "$p" | xargs)"  # trim
+            p="$(echo "$p" | xargs)"
             [[ -z "$p" ]] && continue
             src="/tmp/canonical/canonical/$p"
             dst="$p"
