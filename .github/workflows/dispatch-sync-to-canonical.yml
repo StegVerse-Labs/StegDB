@@ -1,0 +1,59 @@
+name: Dispatch Sync-to-Canonical (Org)
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_repos:
+        description: "Safety cap (set 35 to target 35 repos). Use 0 for no cap."
+        required: false
+        default: "35"
+        type: string
+      include_archived:
+        description: "Include archived repos (not recommended)."
+        required: false
+        default: "false"
+        type: string
+      dry_run:
+        description: "If true, only list targets; do not dispatch."
+        required: false
+        default: "false"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout StegDB
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Dispatch repository_dispatch sync-to-canonical to repos
+        env:
+          GH_TOKEN: ${{ secrets.GH_STEGVERSE_PAT_FG }}
+          ORG_NAME: "StegVerse-Labs"
+          MANIFEST_PATH: "tools/repo_manifest.json"
+
+          MAX_REPOS: ${{ inputs.max_repos }}
+          INCLUDE_ARCHIVED: ${{ inputs.include_archived }}
+          DRY_RUN: ${{ inputs.dry_run }}
+
+          EVENT_TYPE: "sync-to-canonical"
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error title=Missing secret::GH_STEGVERSE_PAT_FG is not set in StegDB repo secrets."
+            exit 2
+          fi
+
+          python tools/dispatch_repo_event.py
