@@ -1,0 +1,50 @@
+name: workflow-lint
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download actionlint
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash \
+            | bash -s -- -b /usr/local/bin
+
+      - name: actionlint
+        shell: bash
+        run: |
+          set -euo pipefail
+          actionlint -color
+
+      - name: Guard: disallow concatenated workflows in one file
+        shell: bash
+        run: |
+          set -euo pipefail
+          bad=0
+          for f in .github/workflows/*.{yml,yaml}; do
+            [[ -f "$f" ]] || continue
+            n=$(grep -E '^[[:space:]]*name:' "$f" | wc -l | tr -d ' ')
+            if [[ "$n" -gt 1 ]]; then
+              echo "::error file=$f::Found $n top-level 'name:' entries. Likely multiple workflows pasted into one file."
+              bad=1
+            fi
+          done
+          [[ "$bad" -eq 0 ]]
