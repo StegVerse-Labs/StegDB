@@ -1,3 +1,5 @@
+Manifest
+
 {
   "version": 1,
   "default_profiles": ["base"],
@@ -11,67 +13,67 @@
       "profiles": ["base", "ops"]
     },
     {
-      "name": "StegVerse-Labs/StegDB",
+      "name": "StegVerse-Labs/Epsteinality",
       "profiles": ["base"]
     },
     {
-      "name": "StegVerse-Labs/StegBrain",
+      "name": "StegVerse-Labs/Trumpality",
       "profiles": ["base", "ops"]
     },
     {
-      "name": "StegVerse-Labs/StegBrain",
+      "name": "StegVerse-Labs/FREE-DOM",
       "profiles": ["base", "ops"]
     },
     {
-      "name": "StegVerse-Labs/StegDB",
+      "name": "StegVerse-Labs/StegSocials",
       "profiles": ["base"]
     },
     {
-      "name": "StegVerse-Labs/StegBrain",
+      "name": "StegVerse-Labs/StegVerse-Healer",
       "profiles": ["base", "ops"]
     },
     {
-      "name": "StegVerse-Labs/StegBrain",
+      "name": "StegVerse-Labs/StegOps-Orchestrator",
       "profiles": ["base", "ops"]
     },
     {
-      "name": "StegVerse-Labs/StegDB",
+      "name": "StegVerse-Labs/Site",
       "profiles": ["base"]
     },
     {
-      "name": "StegVerse-Labs/StegBrain",
+      "name": "StegVerse-Labs/StegAgents",
       "profiles": ["base", "ops"]
     },
     {
-      "name": "StegVerse-Labs/StegBrain",
+      "name": "StegVerse-Labs/StegID",
       "profiles": ["base", "ops"]
     },
     {
-      "name": "StegVerse-Labs/StegDB",
+      "name": "StegVerse-Labs/Governance",
       "profiles": ["base"]
     },
     {
-      "name": "StegVerse-Labs/StegBrain",
+      "name": "StegVerse-Labs/FREE-DOM_OverSight",
       "profiles": ["base", "ops"]
     },
     {
-      "name": "StegVerse-Labs/StegBrain",
+      "name": "StegVerse-Labs/Randolph_Geneaology_Hub",
       "profiles": ["base", "ops"]
     },
     {
-      "name": "StegVerse-Labs/StegDB",
+      "name": "StegVerse-Labs/StegOps-Deliverables",
       "profiles": ["base"]
     },
     {
-      "name": "StegVerse-Labs/StegBrain",
+      "name": "StegVerse-Labs/StegDJ",
       "profiles": ["base", "ops"]
     },
     {
-      "name": "StegVerse-Labs/StegBrain",
+      "name": "StegVerse-Labs/StegSports-CFP",
       "profiles": ["base", "ops"]
     },
     {
-      "name": "StegVerse-Labs/StegDB",
+      "name": "StegVerse-Labs/Continuity",
       "profiles": ["base"]
     },
     {
@@ -95,35 +97,27 @@
       "profiles": ["base", "ops"]
     },
     {
-      "name": "StegVerse-Labs/FREE_DOM_Ops",
-      "profiles": ["base"]
-    },
-    {
       "name": "StegVerse-Labs/FREE-DOM_Books",
       "profiles": ["base", "ops"]
     },
     {
-      "name": "StegVerse-Labs/FREE-DOM",
-      "profiles": ["base", "ops"]
-    },
-    {
-      "name": "StegVerse-Labs/Guiffreality",
+      "name": "StegVerse-Labs/Guiffre-ality",
       "profiles": ["base"]
     },
     {
-      "name": "StegVerse-Labs/Maxwell-ality",
+      "name": "StegVerse-Labs/Maxwellality",
       "profiles": ["base", "ops"]
     },
     {
-      "name": "StegVerse-Labs/Biography",
+      "name": "StegVerse-Labs/StegBiography",
       "profiles": ["base", "ops"]
     },
     {
-      "name": "StegVerse-Labs/Epsteinality",
+      "name": "StegVerse-Labs/hybrid-collab-bridge",
       "profiles": ["base"]
     },
     {
-      "name": "StegVerse-Labs/Trumpality",
+      "name": "StegVerse-Labs/Patents",
       "profiles": ["base", "ops"]
     },
     {
