@@ -1,18 +1,7 @@
 name: Bootstrap Canonical to Org
 
 on:
-  workflow_dispatch:
-    inputs:
-      max_repos:
-        description: "Safety cap (set 35 to do 35 repos). Use 0 for no cap."
-        required: false
-        default: "35"
-        type: string
-      include_archived:
-        description: "Include archived repos (not recommended)."
-        required: false
-        default: "false"
-        type: string
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -20,6 +9,10 @@ permissions:
 jobs:
   bootstrap:
     runs-on: ubuntu-latest
+
+    env:
+      ORG_NAME: StegVerse
+      DISPATCH_EVENT: sync-to-canonical
 
     steps:
       - name: Checkout StegDB
@@ -32,38 +25,61 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Bootstrap canonical workflow to org repos (PR-based)
-        env:
-          # MUST be a PAT that can write to the target repos (contents + PRs).
-          GH_TOKEN: ${{ secrets.GH_STEGVERSE_PAT_FG }}
-
-          # Org name to discover repos under:
-          ORG_NAME: "StegVerse-Labs"
-
-          # Where the bootstrap workflow lives inside StegDB canonical
-          BOOTSTRAP_SOURCE: canonical/profiles/base/.github/workflows/sync-to-canonical.yml
-
-          # Where it should land in every target repo
-          TARGET_PATH: .github/workflows/sync-to-canonical.yml
-
-          # Optional: also load tools/repo_manifest.json and union with org repos
-          MANIFEST_PATH: tools/repo_manifest.json
-
-          # Caps / filters
-          MAX_REPOS: ${{ inputs.max_repos }}
-          INCLUDE_ARCHIVED: ${{ inputs.include_archived }}
-
+      - name: Validate required secret
+        shell: bash
         run: |
           set -euo pipefail
 
-          if [[ -z "${GH_TOKEN:-}" ]]; then
-            echo "::error title=Missing secret::GH_STEGVERSE_PAT_FG is not set in StegDB repo secrets."
+          if [[ -z "${GH_MULTI_REPO_PAT:-}" ]]; then
+            echo "::error title=Missing secret::GH_MULTI_REPO_PAT is not set in StegDB repo or org secrets."
             exit 2
           fi
 
-          if [[ ! -f "${BOOTSTRAP_SOURCE}" ]]; then
-            echo "::error title=Missing bootstrap source::${BOOTSTRAP_SOURCE} not found."
-            exit 2
+      - name: Load repo list
+        id: repos
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CONFIG="tools/repos_config.json"
+          if [[ ! -f "$CONFIG" ]]; then
+            echo "::error title=Missing repos_config.json::tools/repos_config.json not found."
+            exit 1
           fi
 
-          python tools/bootstrap_canonical_prs.py
+          python - <<'PY'
+          import json
+          with open("tools/repos_config.json","r",encoding="utf-8") as f:
+              data=json.load(f)
+
+          repos=[
+              r["name"] for r in data.get("repos",[])
+              if r["name"] not in ("StegDB",)
+          ]
+
+          if not repos:
+              raise SystemExit("No repos to dispatch.")
+
+          print("repos=" + " ".join(repos))
+          PY >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch canonical sync to org repos
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_MULTI_REPO_PAT }}
+        run: |
+          set -euo pipefail
+
+          for repo in ${{ steps.repos.outputs.repos }}; do
+            echo "🚀 Dispatching canonical sync to $repo"
+
+            curl -fsSL -X POST \
+              -H "Authorization: token ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${ORG_NAME}/${repo}/dispatches" \
+              -d "{\"event_type\":\"${DISPATCH_EVENT}\"}" \
+              || echo "::warning::Dispatch failed for ${repo}"
+          done
+
+      - name: Done
+        run: echo "✅ Canonical bootstrap dispatch complete."
