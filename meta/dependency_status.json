@@ -1,14 +1,14 @@
 {
   "artifacts": {
     "aggregated_files_jsonl": false,
-    "canonical_bundle_sha256": "2dc699498e3137edcc61b24da8c79d875794141613d428335d2aaf5402dd8f98"
+    "canonical_bundle_sha256": "d7ea48137b70374cbee55520f57711bd987e3e002c511848439a69749e6a5f7e"
   },
   "details": {
     "job": "publish",
     "job_status": "success",
     "workflow": "publish-canonical"
   },
-  "generated_at_utc": "2026-01-05T05:07:07Z",
+  "generated_at_utc": "2026-01-05T07:04:22Z",
   "provider": "StegDB",
   "reason": "canonical-published",
   "state": "ok"
