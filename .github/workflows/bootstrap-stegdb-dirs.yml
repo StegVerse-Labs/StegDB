@@ -1,13 +1,24 @@
-name: Bootstrap StegDB Directories
+name: Bootstrap Canonical to Org
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      max_repos:
+        description: "Safety cap (set 35 to do 35 repos). Use 0 for no cap."
+        required: false
+        default: "35"
+        type: string
+      include_archived:
+        description: "Include archived repos (not recommended)."
+        required: false
+        default: "false"
+        type: string
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  bootstrap-dirs:
+  bootstrap:
     runs-on: ubuntu-latest
 
     steps:
@@ -16,25 +27,43 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Create required directories
-        run: |
-          mkdir -p repairs/CosDen
-          mkdir -p meta
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-          # Add .gitkeep so git tracks empty dirs
-          touch repairs/.gitkeep
-          touch repairs/CosDen/.gitkeep
-          touch meta/.gitkeep
+      - name: Bootstrap canonical workflow to org repos (PR-based)
+        env:
+          # MUST be a PAT that can write to the target repos (contents + PRs).
+          GH_TOKEN: ${{ secrets.GH_STEGVERSE_PAT_FG }}
 
-      - name: Commit and push if there are changes
+          # Org name to discover repos under:
+          ORG_NAME: "StegVerse-Labs"
+
+          # Where the bootstrap workflow lives inside StegDB canonical
+          BOOTSTRAP_SOURCE: canonical/profiles/base/.github/workflows/sync-to-canonical.yml
+
+          # Where it should land in every target repo
+          TARGET_PATH: .github/workflows/sync-to-canonical.yml
+
+          # Optional: also load tools/repo_manifest.json and union with org repos
+          MANIFEST_PATH: tools/repo_manifest.json
+
+          # Caps / filters
+          MAX_REPOS: ${{ inputs.max_repos }}
+          INCLUDE_ARCHIVED: ${{ inputs.include_archived }}
+
         run: |
-          if git status --porcelain | grep .; then
-            echo "Changes detected, committing..."
-            git config user.name "stegdb-bot"
-            git config user.email "stegdb-bot@users.noreply.github.com"
-            git add repairs meta
-            git commit -m "Bootstrap repairs/ and meta/ directories"
-            git push origin HEAD:main
-          else
-            echo "No changes to commit."
+          set -euo pipefail
+
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error title=Missing secret::GH_STEGVERSE_PAT_FG is not set in StegDB repo secrets."
+            exit 2
           fi
+
+          if [[ ! -f "${BOOTSTRAP_SOURCE}" ]]; then
+            echo "::error title=Missing bootstrap source::${BOOTSTRAP_SOURCE} not found."
+            exit 2
+          fi
+
+          python tools/bootstrap_canonical_prs.py
