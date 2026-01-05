@@ -1,0 +1,73 @@
+name: workflow-lint
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install actionlint
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash \
+            | bash -s -- -b /usr/local/bin
+
+      - name: Lint workflows (actionlint)
+        shell: bash
+        run: |
+          set -euo pipefail
+          actionlint -color
+
+      - name: Validate YAML parses (python)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import sys
+          from pathlib import Path
+          import yaml
+          bad = 0
+          for p in Path(".github/workflows").glob("*.y*ml"):
+              try:
+                  yaml.safe_load(p.read_text(encoding="utf-8"))
+              except Exception as e:
+                  bad += 1
+                  print(f"::error file={p}::YAML parse failed: {e}")
+          if bad:
+              raise SystemExit(1)
+          print("✅ YAML parse OK for workflows/")
+          PY
+        env:
+          PYTHONUNBUFFERED: "1"
+
+      - name: Guard: disallow concatenated workflows in one file
+        shell: bash
+        run: |
+          set -euo pipefail
+          # If a file accidentally contains multiple "name:" at top level, GitHub UI gets weird fast.
+          # This catches the classic "pasted multiple workflows into one file" failure mode.
+          bad=0
+          for f in .github/workflows/*.{yml,yaml}; do
+            [[ -f "$f" ]] || continue
+            n=$(grep -E '^[[:space:]]*name:' "$f" | wc -l | tr -d ' ')
+            if [[ "$n" -gt 1 ]]; then
+              echo "::error file=$f::Found $n top-level 'name:' entries. This usually means multiple workflows were concatenated into one file."
+              bad=1
+            fi
+          done
+          [[ "$bad" -eq 0 ]]
