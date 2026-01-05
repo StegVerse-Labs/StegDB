@@ -11,35 +11,43 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      GH_TOKEN: ${{ secrets.GH_STEGVERSE_PAT_FG }}
+      # Repo-level secret (DO NOT rely on org secrets for private repos)
+      GH_TOKEN: ${{ secrets.GH_MULTI_REPO_PAT }}
       ORG_NAME: StegVerse
 
     steps:
+      - name: Fail if GH token missing
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error title=Missing repo secret::GH_MULTI_REPO_PAT is not set in StegDB repo secrets."
+            exit 2
+          fi
+
+      # 1. Checkout StegDB (this repo)
       - name: Checkout StegDB
         uses: actions/checkout@v4
 
-      - name: Checkout CosDen
-        uses: actions/checkout@v4
-        with:
-          repository: StegVerse/CosDen
-          path: CosDen
-
+      # 2. Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+      # 3. Ensure base directories exist
       - name: Ensure StegDB directories
         run: |
-          mkdir -p meta repairs repos canonical
-          touch meta/.gitkeep repairs/.gitkeep repos/.gitkeep
+          mkdir -p meta repairs repos canonical tools
+          touch meta/.gitkeep repairs/.gitkeep repos/.gitkeep canonical/.gitkeep || true
 
+      # 4. Auto-discover StegVerse repos and write tools/repos_config.json
       - name: Discover StegVerse repos
+        shell: bash
         run: |
+          set -euo pipefail
           python - << 'PY'
-          import os
-          import json
-          import urllib.request
+          import os, json, urllib.request
           from pathlib import Path
 
           org = os.environ.get("ORG_NAME", "StegVerse")
@@ -57,15 +65,27 @@ jobs:
               },
           )
 
-          print(f"Fetching repos for org: {org}")
-          with urllib.request.urlopen(req) as resp:
-              data = json.load(resp)
-
           repos = []
-          for repo in data:
-              if repo.get("archived"):
-                  continue
-              repos.append({"name": repo["name"], "url": repo["clone_url"]})
+          page = 1
+          while True:
+              paged = url + f"&page={page}"
+              req = urllib.request.Request(
+                  paged,
+                  headers={
+                      "Authorization": f"token {token}",
+                      "Accept": "application/vnd.github+json",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              with urllib.request.urlopen(req) as resp:
+                  data = json.load(resp)
+              if not data:
+                  break
+              for repo in data:
+                  if repo.get("archived"):
+                      continue
+                  repos.append({"name": repo["name"], "url": repo["clone_url"]})
+              page += 1
 
           tools_dir = Path("tools")
           tools_dir.mkdir(exist_ok=True)
@@ -73,70 +93,8 @@ jobs:
           cfg_path.write_text(json.dumps({"repos": repos}, indent=2), encoding="utf-8")
 
           print(f"Wrote {len(repos)} repos to {cfg_path}")
-          for r in repos:
-              print(f" - {r['name']}")
           PY
 
+      # 5. Run the StegDB full cycle (your orchestrator)
       - name: Run StegDB Full Cycle
         run: python tools/run_full_cycle.py
-
-      - name: Write dependency status (always)
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p meta
-
-          STATE="ok"
-          REASON="healthy"
-          if [[ "${{ job.status }}" != "success" ]]; then
-            STATE="broken"
-            REASON="workflow-failure"
-          fi
-
-          HAS_AGG=false
-          if [[ -s "meta/aggregated_files.jsonl" ]]; then
-            HAS_AGG=true
-          fi
-
-          if [[ -f "scripts/write_dependency_status.py" ]]; then
-            python scripts/write_dependency_status.py \
-              --state "$STATE" \
-              --reason "$REASON" \
-              --details "{\"workflow\":\"${{ github.workflow }}\",\"job\":\"${{ github.job }}\",\"job_status\":\"${{ job.status }}\"}" \
-              $( $HAS_AGG && echo "--has-aggregated-files" || true )
-          else
-            cat > meta/dependency_status.json <<EOF
-          {
-            "provider": "StegDB",
-            "state": "${STATE}",
-            "reason": "${REASON}",
-            "generated_at_utc": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-            "artifacts": { "aggregated_files_jsonl": ${HAS_AGG} },
-            "details": {
-              "workflow": "${{ github.workflow }}",
-              "job": "${{ github.job }}",
-              "job_status": "${{ job.status }}"
-            }
-          }
-          EOF
-          fi
-
-      - name: Commit and push meta + status (always)
-        if: always() && github.ref == 'refs/heads/main'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add meta/*.json meta/*.jsonl tools/repos_config.json 2>/dev/null || true
-
-          if git diff --cached --quiet; then
-            echo "No changes to commit."
-            exit 0
-          fi
-
-          git commit -m "chore(meta): update central cycle outputs [skip ci]"
-          git push
