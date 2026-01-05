@@ -1,0 +1,15 @@
+{
+  "artifacts": {
+    "aggregated_files_jsonl": false,
+    "canonical_bundle_sha256": "2dc699498e3137edcc61b24da8c79d875794141613d428335d2aaf5402dd8f98"
+  },
+  "details": {
+    "job": "publish",
+    "job_status": "success",
+    "workflow": "publish-canonical"
+  },
+  "generated_at_utc": "2026-01-05T05:07:07Z",
+  "provider": "StegDB",
+  "reason": "canonical-published",
+  "state": "ok"
+}
