@@ -33,9 +33,8 @@ jobs:
           set -euo pipefail
           rm -f canonical-bundle.zip canonical-bundle.sha256
 
-          # Zip the canonical folder (stable, reproducible-ish ordering)
           python - <<'PY'
-          import os, zipfile
+          import zipfile
           from pathlib import Path
 
           root = Path("canonical")
@@ -45,7 +44,7 @@ jobs:
             for p in sorted(root.rglob("*")):
               if p.is_dir():
                 continue
-              z.write(p, p.as_posix())  # keep paths like canonical/...
+              z.write(p, p.as_posix())
           print(f"Wrote {zname} ({zname.stat().st_size} bytes)")
           PY
 
@@ -80,3 +79,59 @@ jobs:
           files: |
             canonical-bundle.zip
             canonical-bundle.sha256
+
+      - name: Write dependency status (always)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p meta
+
+          STATE="ok"
+          REASON="canonical-published"
+          if [[ "${{ job.status }}" != "success" ]]; then
+            STATE="broken"
+            REASON="canonical-publish-failed"
+          fi
+
+          if [[ -f "scripts/write_dependency_status.py" ]]; then
+            python scripts/write_dependency_status.py \
+              --state "$STATE" \
+              --reason "$REASON" \
+              --canonical-sha "${{ env.sha256 || '' }}" \
+              --details "{\"workflow\":\"${{ github.workflow }}\",\"job\":\"${{ github.job }}\",\"job_status\":\"${{ job.status }}\"}"
+          else
+            cat > meta/dependency_status.json <<EOF
+          {
+            "provider": "StegDB",
+            "state": "${STATE}",
+            "reason": "${REASON}",
+            "generated_at_utc": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "artifacts": {
+              "canonical_bundle_sha256": "${{ env.sha256 || '' }}"
+            },
+            "details": {
+              "workflow": "${{ github.workflow }}",
+              "job": "${{ github.job }}",
+              "job_status": "${{ job.status }}"
+            }
+          }
+          EOF
+          fi
+
+      - name: Commit dependency status (always)
+        if: always() && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add meta/dependency_status.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No status changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore(meta): update dependency_status after canonical publish [skip ci]"
+          git push
