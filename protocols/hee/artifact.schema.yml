@@ -1,0 +1,35 @@
+type: object
+required:
+  - artifact_id
+  - type
+  - hash
+  - ingested_at
+  - source
+properties:
+  artifact_id: { type: string }
+  type: { type: string }
+  hash: { type: string }
+  ingested_at: { type: string }
+  source:
+    type: object
+    properties:
+      kind: { type: string }   # photo, video, pdf, email, scan
+      origin: { type: string } # user, counterparty, third_party
+      note: { type: string }
+  transformations:
+    type: array
+    items:
+      type: object
+      properties:
+        at: { type: string }
+        action: { type: string } # "redacted", "cropped", "converted"
+        by: { type: string }
+  confidence:
+    type: object
+    properties:
+      score: { type: number }
+      band: { type: string, enum: [weak, moderate, strong, very-strong] }
+      computed_at: { type: string }
+      algorithm_version: { type: string }
+      factors: { type: array, items: { type: string } }
+      notes: { type: string }
