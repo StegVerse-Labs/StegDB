@@ -1,0 +1,24 @@
+type: object
+required:
+  - transition_id
+  - item_id
+  - state
+  - initiated_by
+  - proposed_new_custodian
+  - timestamp
+properties:
+  transition_id: { type: string }
+  item_id: { type: string }
+  state:
+    type: string
+    enum: [proposed, acknowledged, contested, confirmed, expired, revoked]
+  initiated_by: { type: string }
+  proposed_new_custodian: { type: string }
+  timestamp: { type: string }
+  location: { type: string }
+  confidence:
+    type: object
+    properties:
+      score: { type: number }
+      band: { type: string, enum: [weak, moderate, strong, very-strong] }
+      factors: { type: array, items: { type: string } }
