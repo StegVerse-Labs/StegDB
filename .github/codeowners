@@ -1,0 +1,11 @@
+# Default owners (adjust handles)
+* @StegVerse-Labs/stegdb-maintainers
+
+# Protocols & schemas require explicit review
+/protocols/ @StegVerse-Labs/stegdb-maintainers
+/schemas/   @StegVerse-Labs/stegdb-maintainers
+/registry/  @StegVerse-Labs/stegdb-maintainers
+
+# Tooling
+/scripts/   @StegVerse-Labs/stegdb-maintainers
+/tools/     @StegVerse-Labs/stegdb-maintainers
