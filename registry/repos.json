@@ -8,12 +8,39 @@
       "prod_valid": false,
       "last_build_validation": null,
       "last_prod_validation": null
-    }
+    },
+    {
+      "name": "DiamondOps-Core",
+      "full_name": "stegverse-labs/diamondops-core",
+      "path": "DiamondOps-Core",
+      "canonical_path": "canonical/diamondops-core",
+      "prod_valid": false,
+      "last_build_validation": null,
+      "last_prod_validation": null
+    },
     {
       "name": "HydraSafe",
       "full_name": "stegverse-labs/hydrasafe",
       "path": "HydraSafe",
       "canonical_path": "canonical/hydrasafe",
+      "prod_valid": false,
+      "last_build_validation": null,
+      "last_prod_validation": null
+    },
+    {
+      "name": "ReactorOps",
+      "full_name": "stegverse-labs/reactorops",
+      "path": "ReactorOps",
+      "canonical_path": "canonical/reactorops",
+      "prod_valid": false,
+      "last_build_validation": null,
+      "last_prod_validation": null
+    },
+    {
+      "name": "YieldOS",
+      "full_name": "stegverse-labs/yieldos",
+      "path": "YieldOS",
+      "canonical_path": "canonical/yieldos",
       "prod_valid": false,
       "last_build_validation": null,
       "last_prod_validation": null
