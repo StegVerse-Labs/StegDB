@@ -1,0 +1,52 @@
+{
+  "default_source_key": "diamondops",
+  "default_source_repo": "StegVerse/DiamondOps",
+  "default_source_ref": "main",
+  "items": [
+    {
+      "source_key": "core",
+      "source_repo": "StegVerse/DiamondOps-Core",
+      "source_ref": "main",
+      "canonical_path": "docs/CANONICAL_DOCS.md",
+      "target_path": "docs/DiamondOps-Core.CANONICAL_DOCS.md",
+      "template": "templates/link_only.md.tmpl"
+    },
+    {
+      "source_key": "core",
+      "source_repo": "StegVerse/DiamondOps-Core",
+      "source_ref": "main",
+      "canonical_path": "docs/SCHEMA_CHANGE_POLICY.md",
+      "target_path": "docs/SCHEMA_CHANGE_POLICY.md",
+      "template": "templates/excerpt_with_link.md.tmpl"
+    },
+    {
+      "source_key": "core",
+      "source_repo": "StegVerse/DiamondOps-Core",
+      "source_ref": "main",
+      "canonical_path": "docs/COMPATIBILITY.md",
+      "target_path": "docs/COMPATIBILITY.md",
+      "template": "templates/excerpt_with_link.md.tmpl"
+    },
+    {
+      "source_key": "core",
+      "source_repo": "StegVerse/DiamondOps-Core",
+      "source_ref": "main",
+      "canonical_path": "docs/VERSIONING.md",
+      "target_path": "docs/VERSIONING.md",
+      "template": "templates/excerpt_with_link.md.tmpl"
+    },
+
+    {
+      "source_key": "diamondops",
+      "canonical_path": "docs/POSITION.md",
+      "target_path": "docs/POSITION.md",
+      "template": "templates/link_only.md.tmpl"
+    },
+    {
+      "source_key": "diamondops",
+      "canonical_path": "docs/LIABILITY_BOUNDARY.md",
+      "target_path": "docs/LIABILITY_BOUNDARY.md",
+      "template": "templates/excerpt_with_link.md.tmpl"
+    }
+  ]
+}
