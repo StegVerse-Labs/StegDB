@@ -1,0 +1,79 @@
+name: Sync canonical docs to repos
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 9 * * 1" # weekly Mondays 09:17 UTC (adjust as desired)
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        repo:
+          - StegVerse/HydraSafe
+          - StegVerse/ReactorOps
+          - StegVerse/YieldOS
+
+    steps:
+      - name: Checkout StegDB
+        uses: actions/checkout@v4
+
+      - name: Checkout DiamondOps (canonical)
+        uses: actions/checkout@v4
+        with:
+          repository: StegVerse/DiamondOps
+          path: _diamondops
+          ref: main
+
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.repo }}
+          path: _target
+          ref: main
+
+      - name: Sync canonical docs into target repo
+        run: |
+          python3 tools/sync_canonical_docs.py \
+            --manifest tools/canonical_docs_manifest.json \
+            --diamondops-root _diamondops \
+            --repo-root . \
+            --repo-name "$(basename '${{ matrix.repo }}')" \
+            --dry-run
+        working-directory: _target
+
+      - name: Apply changes
+        run: |
+          python3 ../tools/sync_canonical_docs.py \
+            --manifest ../tools/canonical_docs_manifest.json \
+            --diamondops-root ../_diamondops \
+            --repo-root . \
+            --repo-name "$(basename '${{ matrix.repo }}')"
+        working-directory: _target
+
+      - name: Create PR if changes
+        run: |
+          cd _target
+          if git status --porcelain | grep .; then
+            BRANCH="stegdb/sync-canonical-docs"
+            git checkout -b "$BRANCH"
+            git add -A
+            git commit -m "chore(docs): sync canonical DiamondOps docs"
+            git push -u origin "$BRANCH"
+
+            gh pr create \
+              --title "chore(docs): sync canonical DiamondOps docs" \
+              --body "This PR syncs canonical documentation from DiamondOps (liability boundary, position, security, contributing) into this repo via StegDB templates." \
+              --base main \
+              --head "$BRANCH" || true
+          else
+            echo "No changes."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
