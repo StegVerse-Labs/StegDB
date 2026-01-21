@@ -2,6 +2,7 @@
   "repos": [
     {
       "name": "CosDen",
+      "full_name": "stegverse-labs/cosden",
       "path": "CosDen",
       "canonical_path": "canonical/cosden",
       "prod_valid": false,
