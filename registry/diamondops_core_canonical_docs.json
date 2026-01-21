@@ -1,0 +1,38 @@
+{
+  "name": "diamondops-core canonicals",
+  "source_repo": "stegverse-labs/diamondops-core",
+  "source_ref": "main",
+
+  "targets": {
+    "default": {
+      "docs_root": "docs"
+    }
+  },
+
+  "items": [
+    {
+      "key": "LIABILITY_BOUNDARY",
+      "canonical_path": "docs/LIABILITY_BOUNDARY.md",
+      "target_path": "docs/LIABILITY_BOUNDARY.md",
+      "template": "templates/docs/LIABILITY_BOUNDARY.md.tmpl",
+      "mode": "excerpt",
+      "required_reference": true
+    },
+    {
+      "key": "POSITION",
+      "canonical_path": "docs/POSITION.md",
+      "target_path": "docs/POSITION.md",
+      "template": "templates/docs/POSITION.md.tmpl",
+      "mode": "excerpt",
+      "required_reference": true
+    },
+    {
+      "key": "CANONICAL_DOCS",
+      "canonical_path": "docs/CANONICAL_DOCS.md",
+      "target_path": "docs/CANONICAL_DOCS.md",
+      "template": "templates/docs/CANONICAL_DOCS.md.tmpl",
+      "mode": "excerpt",
+      "required_reference": true
+    }
+  ]
+}
