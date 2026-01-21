@@ -1,12 +1,22 @@
 {
-  "POSITION": {
-    "canonical_path": "DiamondOps/docs/POSITION.md",
-    "allowed_modes": ["link-only"],
-    "required_reference": true
-  },
-  "LIABILITY_BOUNDARY": {
-    "canonical_path": "DiamondOps/docs/LIABILITY_BOUNDARY.md",
-    "allowed_modes": ["link-only", "excerpt"],
-    "required_reference": true
-  }
+  "source_repo": "stegverse-labs/diamondops-core",
+  "source_ref": "main",
+  "items": [
+    {
+      "id": "DIAMONDOPS_POSITION",
+      "canonical_path": "docs/POSITION.md",
+      "target_path": "docs/POSITION.md",
+      "mode": "rendered",
+      "template": "templates/docs/POSITION.md.tmpl",
+      "required_reference": true
+    },
+    {
+      "id": "DIAMONDOPS_LIABILITY_BOUNDARY",
+      "canonical_path": "docs/LIABILITY_BOUNDARY.md",
+      "target_path": "docs/LIABILITY_BOUNDARY.md",
+      "mode": "rendered",
+      "template": "templates/docs/LIABILITY_BOUNDARY.md.tmpl",
+      "required_reference": true
+    }
+  ]
 }
