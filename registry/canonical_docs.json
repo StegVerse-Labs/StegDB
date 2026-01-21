@@ -1,0 +1,12 @@
+{
+  "POSITION": {
+    "canonical_path": "DiamondOps/docs/POSITION.md",
+    "allowed_modes": ["link-only"],
+    "required_reference": true
+  },
+  "LIABILITY_BOUNDARY": {
+    "canonical_path": "DiamondOps/docs/LIABILITY_BOUNDARY.md",
+    "allowed_modes": ["link-only", "excerpt"],
+    "required_reference": true
+  }
+}
