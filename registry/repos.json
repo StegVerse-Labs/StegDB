@@ -9,5 +9,14 @@
       "last_build_validation": null,
       "last_prod_validation": null
     }
+    {
+  "name": "HydraSafe",
+  "full_name": "stegverse-labs/hydrasafe",
+  "path": "HydraSafe",
+  "canonical_path": "canonical/hydrasafe",
+  "prod_valid": false,
+  "last_build_validation": null,
+  "last_prod_validation": null
+    }
   ]
 }
