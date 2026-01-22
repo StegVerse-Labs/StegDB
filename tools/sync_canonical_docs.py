@@ -37,9 +37,14 @@ def load_json(p: Path) -> Dict[str, Any]:
     return json.loads(read_text(p))
 
 
-def _safe_mode(item: Dict[str, Any]) -> str:
-    m = (item.get("mode") or "excerpt").strip().lower()
-    if m not in ("excerpt", "link-only"):
+def _safe_mode(item):
+    m = item.get("mode", "link-only")
+    allowed = {
+        "link-only",
+        "excerpt",
+        "rendered",  # ← ADD THIS
+    }
+    if m not in allowed:
         raise ValueError(f"Unsupported mode: {m}")
     return m
 
