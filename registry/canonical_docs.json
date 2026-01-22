@@ -17,6 +17,14 @@
       "mode": "rendered",
       "template": "templates/docs/LIABILITY_BOUNDARY.md.tmpl",
       "required_reference": true
+    },
+    {
+      "id": "DIAMONDOPS_CANONICAL_DOCS",
+      "canonical_path": "docs/CANONICAL_DOCS.md",
+      "target_path": "docs/CANONICAL_DOCS.md",
+      "mode": "rendered",
+      "template": "templates/docs/CANONICAL_DOCS.md.tmpl",
+      "required_reference": true
     }
   ]
 }
