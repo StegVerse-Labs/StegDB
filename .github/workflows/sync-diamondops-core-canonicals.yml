@@ -79,10 +79,11 @@ jobs:
             python tools/sync_canonical_docs.py \
               --registry "${CANON_REGISTRY}" \
               --source-root /tmp/diamondops-core \
-              --repo-root "$work" \
+              --target-repo-root "$work" \
+              --stegdb-root "$GITHUB_WORKSPACE" \
               --repo-name "$name" \
               $( [[ "$DRY" == "true" ]] && echo "--dry-run" || true )
-
+  
             if [[ "$DRY" == "true" ]]; then
               echo "Dry-run for $full completed."
               continue
