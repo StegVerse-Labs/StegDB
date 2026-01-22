@@ -1,5 +1,7 @@
 # StegDB
 
+[![Sync DiamondOps-Core canonicals](https://github.com/stegverse-labs/stegdb/actions/workflows/sync-diamondops-core-canonicals.yml/badge.svg)](https://github.com/stegverse-labs/stegdb/actions/workflows/sync-diamondops-core-canonicals.yml)
+
 StegDB is StegVerse-Labs’ **canonical database + protocol hub** for keeping many repos consistent, auditable, and “self-healing.”
 
 It provides:
