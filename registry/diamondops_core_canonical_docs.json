@@ -1,38 +1,30 @@
 {
-  "name": "diamondops-core canonicals",
   "source_repo": "stegverse-labs/diamondops-core",
   "source_ref": "main",
-
-  "targets": {
-    "default": {
-      "docs_root": "docs"
-    }
-  },
-
   "items": [
     {
-      "key": "LIABILITY_BOUNDARY",
-      "canonical_path": "docs/LIABILITY_BOUNDARY.md",
-      "target_path": "docs/LIABILITY_BOUNDARY.md",
-      "template": "templates/docs/LIABILITY_BOUNDARY.md.tmpl",
-      "mode": "excerpt",
-      "required_reference": true
-    },
-    {
-      "key": "POSITION",
+      "id": "DIAMONDOPS_POSITION",
       "canonical_path": "docs/POSITION.md",
       "target_path": "docs/POSITION.md",
+      "mode": "rendered",
       "template": "templates/docs/POSITION.md.tmpl",
-      "mode": "excerpt",
       "required_reference": true
     },
     {
-      "key": "CANONICAL_DOCS",
-      "canonical_path": "docs/CANONICAL_DOCS.md",
-      "target_path": "docs/CANONICAL_DOCS.md",
-      "template": "templates/docs/CANONICAL_DOCS.md.tmpl",
-      "mode": "excerpt",
+      "id": "DIAMONDOPS_LIABILITY_BOUNDARY",
+      "canonical_path": "docs/LIABILITY_BOUNDARY.md",
+      "target_path": "docs/LIABILITY_BOUNDARY.md",
+      "mode": "rendered",
+      "template": "templates/docs/LIABILITY_BOUNDARY.md.tmpl",
       "required_reference": true
+    },
+    {
+      "id": "DIAMONDOPS_EVIDENCE_PACK",
+      "canonical_path": "docs/EVIDENCE_PACK.md",
+      "target_path": "docs/EVIDENCE_PACK.md",
+      "mode": "rendered",
+      "template": "templates/docs/EVIDENCE_PACK.md.tmpl",
+      "required_reference": false
     }
   ]
 }
