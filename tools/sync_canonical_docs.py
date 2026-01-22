@@ -47,7 +47,8 @@ def _safe_mode(item: Dict[str, Any]) -> str:
 def sync_docs(
     registry: Dict[str, Any],
     source_root: Path,
-    repo_root: Path,
+    target_repo_root: Path,
+    stegdb_root: Path,
     repo_name: str,
     dry_run: bool = False,
 ) -> List[Tuple[str, str]]:
@@ -67,7 +68,8 @@ def sync_docs(
             results.append((target_path, "missing_canonical"))
             continue
 
-        tmpl_file = repo_root / template_path
+        # IMPORTANT: templates live in StegDB
+        tmpl_file = stegdb_root / template_path
         if not tmpl_file.exists():
             results.append((target_path, "missing_template"))
             continue
@@ -91,7 +93,7 @@ def sync_docs(
 
         rendered = normalize(render_template(tmpl, subs))
 
-        tgt_file = repo_root / target_path
+        tgt_file = target_repo_root / target_path
         current = normalize(read_text(tgt_file)) if tgt_file.exists() else ""
 
         if current == rendered:
@@ -108,18 +110,25 @@ def sync_docs(
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--registry", required=True, help="Path to registry/*.json")
+    ap.add_argument("--registry", required=True, help="Path to registry/*.json (relative to StegDB root OK)")
     ap.add_argument("--source-root", required=True, help="Path where DiamondOps-Core is checked out")
-    ap.add_argument("--repo-root", required=True, help="Path to target repo working directory")
+    ap.add_argument("--target-repo-root", required=True, help="Path to target repo working directory")
+    ap.add_argument("--stegdb-root", required=True, help="Path to StegDB root (where templates/ live)")
     ap.add_argument("--repo-name", required=True, help="Repo name, e.g. HydraSafe")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
-    registry = load_json(Path(args.registry))
+    stegdb_root = Path(args.stegdb_root).resolve()
+    registry_path = Path(args.registry)
+    if not registry_path.is_absolute():
+        registry_path = (stegdb_root / registry_path).resolve()
+
+    registry = load_json(registry_path)
     results = sync_docs(
         registry=registry,
         source_root=Path(args.source_root),
-        repo_root=Path(args.repo_root),
+        target_repo_root=Path(args.target_repo_root),
+        stegdb_root=stegdb_root,
         repo_name=args.repo_name,
         dry_run=args.dry_run,
     )
