@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, List, Tuple
 
 
 def read_text(p: Path) -> str:
@@ -51,13 +51,8 @@ def sync_docs(
     repo_name: str,
     dry_run: bool = False,
 ) -> List[Tuple[str, str]]:
-    """
-    Returns list of (target_path, status) where status in:
-      {"unchanged","updated","missing_template","missing_canonical","invalid"}
-    """
     source_repo = registry["source_repo"]
     source_ref = registry.get("source_ref", "main")
-
     results: List[Tuple[str, str]] = []
 
     for item in registry.get("items", []):
@@ -82,12 +77,10 @@ def sync_docs(
 
         src_url = canonical_source_url(source_repo, source_ref, canonical_path)
 
-        # enforce link presence when required
         if required_reference and "{CANONICAL_SOURCE_URL}" not in tmpl:
             results.append((target_path, "invalid"))
             continue
 
-        # link-only means we intentionally do NOT embed canonical content
         canonical_payload = "" if mode == "link-only" else (can_content.rstrip() + "\n")
 
         subs = {
@@ -115,15 +108,14 @@ def sync_docs(
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--registry", required=True, help="Path to registry/*.json (diamondops-core canonicals)")
-    ap.add_argument("--source-root", required=True, help="Path where DiamondOps-Core repo is checked out")
-    ap.add_argument("--repo-root", required=True, help="Path to the target repo working directory")
+    ap.add_argument("--registry", required=True, help="Path to registry/*.json")
+    ap.add_argument("--source-root", required=True, help="Path where DiamondOps-Core is checked out")
+    ap.add_argument("--repo-root", required=True, help="Path to target repo working directory")
     ap.add_argument("--repo-name", required=True, help="Repo name, e.g. HydraSafe")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
     registry = load_json(Path(args.registry))
-
     results = sync_docs(
         registry=registry,
         source_root=Path(args.source_root),
