@@ -1,22 +1,65 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "StegDB Dependency Status",
+  "description": "Canonical status object emitted by StegDB to report dependency health and associated artifacts.",
   "type": "object",
-  "required": ["state", "generated_at_utc", "provider", "reason"],
+  "additionalProperties": false,
+
+  "required": ["provider", "state", "reason", "generated_at_utc"],
+
   "properties": {
-    "provider": { "type": "string", "const": "StegDB" },
-    "state": { "type": "string", "enum": ["ok", "degraded", "broken"] },
-    "reason": { "type": "string" },
-    "generated_at_utc": { "type": "string", "format": "date-time" },
+    "provider": {
+      "type": "string",
+      "const": "StegDB",
+      "description": "Emitter of this status document."
+    },
+
+    "state": {
+      "type": "string",
+      "enum": ["ok", "degraded", "broken"],
+      "description": "Overall dependency status."
+    },
+
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable explanation for the current state."
+    },
+
+    "generated_at_utc": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$",
+      "description": "ISO-8601 timestamp in UTC (must end with 'Z')."
+    },
+
     "artifacts": {
       "type": "object",
+      "description": "Artifact presence and integrity data produced by StegDB.",
+      "additionalProperties": false,
       "properties": {
-        "aggregated_files_jsonl": { "type": "boolean" },
-        "canonical_bundle_sha256": { "type": "string" }
-      },
+        "aggregated_files_jsonl": {
+          "type": "boolean",
+          "description": "Whether aggregated file listing was produced."
+        },
+        "canonical_bundle_sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$",
+          "description": "SHA-256 of canonical bundle if produced."
+        }
+      }
+    },
+
+    "details": {
+      "type": "object",
+      "description": "Structured details to support debugging and reporting.",
       "additionalProperties": true
     },
-    "details": { "type": "object" }
-  },
-  "additionalProperties": true
+
+    "extensions": {
+      "type": "object",
+      "description": "Explicit escape hatch for forward-compatible fields.",
+      "additionalProperties": true
+    }
+  }
 }
