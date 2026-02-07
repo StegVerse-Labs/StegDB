@@ -1,0 +1,114 @@
+schema_name: stegdb_repo_review
+schema_version: 1.0.0
+
+repo:
+  owner: StegVerse-Labs
+  name: continuity-vault-kit
+  default_branch: main
+  visibility: public
+  tags:
+    - continuity
+    - knowledge
+    - templates
+
+intent:
+  statement: >
+    Provide portable, device-agnostic vault templates and onboarding docs so anyone
+    can start a personal KnowledgeVault with a clear first-contact experience.
+  status: active
+  audience:
+    - public
+    - non_technical
+    - technical
+  non_goals:
+    - Not a cloud service
+    - Not a product
+    - Not surveillance
+
+scope:
+  review_type: audit_docs_kv_visibility
+  include_paths:
+    - vault_templates/
+    - docs/
+    - tools/
+  exclude_paths:
+    - dist/
+  file_globs_exclude:
+    - .git/**
+    - "**/.DS_Store"
+    - "**/node_modules/**"
+    - "**/__pycache__/**"
+
+modes:
+  destructive_actions: forbidden
+  network_access: github_only
+  output_format: all
+
+checks:
+  structural_audit:
+    enabled: true
+    required_files:
+      - README.md
+    recommended_files:
+      - WELCOME.md
+      - STATUS.md
+      - LICENSE
+    folder_expectations:
+      - vault_templates/
+      - docs/
+
+  doc_reality_check:
+    enabled: true
+    must_include_sections:
+      - What it is
+      - What it is not
+      - How to start
+    disallow_phrases:
+      - invite-only
+      - approval required
+      - must request access
+
+  legacy_signaling:
+    enabled: true
+    heuristics:
+      - orphaned_files
+      - duplicate_docs
+      - stale_configs
+      - todo_only_files
+      - abandoned_prototypes
+    classification_labels:
+      - active
+      - experimental
+      - legacy
+      - candidate_for_deprecation
+
+  first_contact:
+    enabled: true
+    welcome_file: WELCOME.md
+    must_answer_questions:
+      - What is this?
+      - How do I start on any device?
+      - What am I not being enrolled into?
+    device_agnostic_language: true
+
+  failure_modes:
+    enabled: true
+    classify_severity:
+      - low
+      - moderate
+      - serious
+    definition_serious_failure:
+      - User cannot open/read core docs
+      - Template breaks on Windows/macOS/Linux/Android/iOS
+      - Docs imply dependencies that do not exist
+      - Announcement claims contradict repo reality
+      - Data loss risk from normal use
+
+outputs:
+  report_paths:
+    markdown: stegdb_review/report.md
+    yaml: stegdb_review/result.yml
+    json: stegdb_review/result.json
+  confidence_signal: green
+  include_suggested_patches: true
+  patches_path: stegdb_review/suggested_patches/
