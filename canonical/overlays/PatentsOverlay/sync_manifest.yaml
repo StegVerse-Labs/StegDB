@@ -1,0 +1,7 @@
+overlay: PatentsOverlay
+version: 0.1.0
+target_repo: StegVerse/Patents
+target_paths:
+  - canon/**
+notes:
+  - "Overlay-only. Never overwrite entities/, templates/, or disclosures/provisionals."
