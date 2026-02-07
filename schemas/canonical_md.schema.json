@@ -1,7 +1,9 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Canonical Markdown Reference",
   "type": "object",
+  "additionalProperties": false,
+  "required": ["canonical_path"],
   "properties": {
     "canonical_path": {
       "type": "string",
@@ -14,13 +16,14 @@
     "allowed_modes": {
       "type": "array",
       "items": {
+        "type": "string",
         "enum": ["link-only", "excerpt"]
-      }
+      },
+      "default": ["link-only"]
     },
     "hash": {
       "type": "string",
       "description": "Optional content hash for drift detection"
     }
-  },
-  "required": ["canonical_path"]
+  }
 }
