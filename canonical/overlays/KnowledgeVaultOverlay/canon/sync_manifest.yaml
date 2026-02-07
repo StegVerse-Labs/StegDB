@@ -1,0 +1,9 @@
+overlay: KnowledgeVaultOverlay
+target_repo_purpose: "Personal durable vault + contracts for sharing + expiry/inertness"
+owns:
+  - canon/README_CANON.md
+  - canon/docs/**
+  - canon/templates/**
+  - canon/policy/**
+notes:
+  - "Everything outside canon/ is repo-local."
