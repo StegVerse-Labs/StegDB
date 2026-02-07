@@ -1,0 +1,7 @@
+overlay: StegScholarOverlay
+version: 0.1.0
+target_repo: StegVerse/StegScholar
+target_paths:
+  - canon/**
+notes:
+  - "Overlay-only. Never overwrite papers/, references/, submissions/, ROADMAP.md."
