@@ -1,0 +1,17 @@
+schema: stegverse.allowlist.v1
+fields:
+  repos:
+    type: array
+    items:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, example: "StegVerse/StegCore" }
+        branches:
+          type: array
+          items: { type: string }
+        paths:
+          type: array
+          items: { type: string }
+notes:
+  - "Allowlist entries restrict scanning. Default deny."
