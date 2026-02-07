@@ -1,0 +1,9 @@
+overlay: StegSocialsOverlay
+target_repo_purpose: "Public trust + disambiguation + shareable claim packets"
+owns:
+  - canon/README_CANON.md
+  - canon/docs/**
+  - canon/templates/**
+  - canon/policy/**
+notes:
+  - "Everything outside canon/ is repo-local."
