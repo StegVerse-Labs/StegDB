@@ -1,0 +1,8 @@
+schema: stegverse.allowlist.v1
+repos:
+  - name: "StegVerse/Patents"
+    branches: ["main"]
+    paths: ["entities/**", "templates/**", ".github/workflows/**"]
+  - name: "StegVerse/StegScholar"
+    branches: ["main"]
+    paths: ["papers/**", "references/**", "submissions/**"]
