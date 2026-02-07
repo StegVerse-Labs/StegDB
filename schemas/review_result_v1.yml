@@ -1,65 +1,161 @@
-schema_name: stegdb_repo_review_result
-schema_version: 1.0.0
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://stegverse-labs.github.io/stegdb/schemas/review_result_v1.json
+title: StegDB Repo Review Result
+description: >
+  Validates a StegDB review output ("result.yml"). This is the non-destructive
+  report produced after analyzing a repo against a review request.
 
-repo:
-  owner: StegVerse-Labs
-  name: example-repo
-  default_branch: main
-  reviewed_at_utc: "2026-02-07T19:45:00Z"
+type: object
+additionalProperties: false
 
-summary:
-  confidence_signal: yellow
-  rationale:
-    - "README exists but lacks 'How to start' section"
-    - "Welcome file missing"
-    - "Found stale scripts likely unused"
-  serious_failures_detected: false
+required:
+  - schema_name
+  - schema_version
+  - repo
+  - summary
 
-inventory:
-  file_counts:
-    markdown: 14
-    yaml: 6
-    json: 0
-    python: 2
-    other: 9
-  key_entrypoints_found:
-    - "README.md"
-  missing_recommended:
-    - "WELCOME.md"
-    - "STATUS.md"
+properties:
+  schema_name:
+    const: stegdb_repo_review_result
+  schema_version:
+    type: string
+    const: 1.0.0
 
-legacy_register:
-  candidates:
-    - path: "tools/old_script.py"
-      label: candidate_for_deprecation
-      reason: "Not referenced; last modified long ago; duplicate functionality elsewhere"
-      severity: moderate
+  repo:
+    type: object
+    additionalProperties: false
+    required: [owner, name, default_branch, reviewed_at_utc]
+    properties:
+      owner: { type: string, minLength: 1 }
+      name: { type: string, minLength: 1 }
+      default_branch: { type: string, minLength: 1 }
+      reviewed_at_utc:
+        type: string
+        description: ISO-8601 UTC timestamp
+        pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$'
 
-doc_alignment:
-  overclaims: []
-  gatekeeping_signals: []
-  suggested_doc_changes:
-    - file: "README.md"
-      change: "Add 'How to start' + 'What this is not' section"
-      priority: high
+  summary:
+    type: object
+    additionalProperties: false
+    required: [confidence_signal, serious_failures_detected]
+    properties:
+      confidence_signal:
+        type: string
+        enum: [green, yellow, red]
+      rationale:
+        type: array
+        items: { type: string }
+        default: []
+      serious_failures_detected:
+        type: boolean
 
-first_contact:
-  passes: false
-  issues:
-    - "New user cannot find starting steps"
-  recommended_additions:
-    - "Add WELCOME.md with device-agnostic guidance"
+  inventory:
+    type: object
+    additionalProperties: false
+    properties:
+      file_counts:
+        type: object
+        additionalProperties: false
+        properties:
+          markdown: { type: integer, minimum: 0 }
+          yaml: { type: integer, minimum: 0 }
+          json: { type: integer, minimum: 0 }
+          python: { type: integer, minimum: 0 }
+          other: { type: integer, minimum: 0 }
+      key_entrypoints_found:
+        type: array
+        items: { type: string }
+        default: []
+      missing_recommended:
+        type: array
+        items: { type: string }
+        default: []
 
-failure_modes:
-  serious:
-    - none
-  moderate:
-    - "Potential confusion due to multiple entry files"
-  low:
-    - "Minor formatting inconsistencies"
+  legacy_register:
+    type: object
+    additionalProperties: false
+    properties:
+      candidates:
+        type: array
+        default: []
+        items:
+          type: object
+          additionalProperties: false
+          required: [path, label, reason, severity]
+          properties:
+            path: { type: string, minLength: 1 }
+            label:
+              type: string
+              enum: [active, experimental, legacy, candidate_for_deprecation]
+            reason: { type: string, minLength: 1 }
+            severity:
+              type: string
+              enum: [low, moderate, serious]
 
-suggested_patches:
-  available: true
-  path: "stegdb_review/suggested_patches/"
-  notes:
-    - "Non-destructive patch set only (PR-style), no deletions"
+  doc_alignment:
+    type: object
+    additionalProperties: false
+    properties:
+      overclaims:
+        type: array
+        items: { type: string }
+        default: []
+      gatekeeping_signals:
+        type: array
+        items: { type: string }
+        default: []
+      suggested_doc_changes:
+        type: array
+        default: []
+        items:
+          type: object
+          additionalProperties: false
+          required: [file, change, priority]
+          properties:
+            file: { type: string, minLength: 1 }
+            change: { type: string, minLength: 1 }
+            priority:
+              type: string
+              enum: [low, medium, high]
+
+  first_contact:
+    type: object
+    additionalProperties: false
+    properties:
+      passes: { type: boolean }
+      issues:
+        type: array
+        items: { type: string }
+        default: []
+      recommended_additions:
+        type: array
+        items: { type: string }
+        default: []
+
+  failure_modes:
+    type: object
+    additionalProperties: false
+    properties:
+      serious:
+        type: array
+        items: { type: string }
+        default: []
+      moderate:
+        type: array
+        items: { type: string }
+        default: []
+      low:
+        type: array
+        items: { type: string }
+        default: []
+
+  suggested_patches:
+    type: object
+    additionalProperties: false
+    properties:
+      available: { type: boolean }
+      path: { type: string }
+      notes:
+        type: array
+        items: { type: string }
+        default: []
