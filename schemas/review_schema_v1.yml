@@ -2,8 +2,9 @@ $schema: https://json-schema.org/draft/2020-12/schema
 $id: https://stegverse-labs.github.io/stegdb/schemas/review_schema_v1.json
 title: StegDB Repo Review Request
 description: >
-  Validates a StegDB review request ("review.yml"). This is read-only audit configuration:
-  it must not require destructive actions and should avoid gatekeeping semantics.
+  Validates a StegDB review request file (review.yml). This config drives a read-only
+  repository review, optional doc suggestions, and non-destructive deprecation signaling.
+  This schema provides structure without gatekeeping or enforcement.
 
 type: object
 additionalProperties: false
@@ -33,9 +34,11 @@ properties:
       owner:
         type: string
         minLength: 1
+        description: GitHub org/user that owns the repo
       name:
         type: string
         minLength: 1
+        description: Repository name
       default_branch:
         type: string
         default: main
@@ -45,8 +48,7 @@ properties:
         default: unknown
       tags:
         type: array
-        items:
-          type: string
+        items: { type: string }
         default: []
 
   intent:
@@ -61,15 +63,14 @@ properties:
       status:
         type: string
         enum: [active, mixed, exploratory, legacy, archived, unknown]
+        description: Declared lifecycle status
       audience:
         type: array
-        items:
-          type: string
+        items: { type: string }
         default: []
       non_goals:
         type: array
-        items:
-          type: string
+        items: { type: string }
         default: []
 
   scope:
@@ -80,20 +81,18 @@ properties:
       review_type:
         type: string
         enum: [read_only_audit, audit_plus_doc_suggestions, audit_docs_kv_visibility]
+        description: Determines depth; all are non-destructive
       include_paths:
         type: array
-        items:
-          type: string
+        items: { type: string }
         default: []
       exclude_paths:
         type: array
-        items:
-          type: string
+        items: { type: string }
         default: []
       file_globs_exclude:
         type: array
-        items:
-          type: string
+        items: { type: string }
         default:
           - .git/**
           - "**/.DS_Store"
@@ -109,6 +108,7 @@ properties:
         type: string
         enum: [forbidden, allowed]
         default: forbidden
+        description: Should be forbidden for StegDB review mode D (non-destructive)
       network_access:
         type: string
         enum: [none, github_only, internet]
@@ -117,10 +117,6 @@ properties:
         type: string
         enum: [yaml, json, markdown, all]
         default: all
-
-    # Guardrail: in review mode D we want forbidden. Keep schema permissive, but allow tooling to enforce stricter policy.
-    # If you want hard enforcement, switch this to: const: forbidden
-    # properties: { destructive_actions: { const: forbidden } }
 
   checks:
     type: object
@@ -131,6 +127,7 @@ properties:
       - legacy_signaling
       - first_contact
       - failure_modes
+      - minimum_standard_v1
     properties:
       structural_audit:
         type: object
@@ -225,6 +222,61 @@ properties:
               - "Docs imply dependencies that do not exist"
               - "Announcement claims contradict repo reality"
               - "Data loss risk from normal use"
+
+      minimum_standard_v1:
+        type: object
+        additionalProperties: false
+        required: [enabled]
+        properties:
+          enabled: { type: boolean }
+
+          standard_doc_path:
+            type: string
+            default: "docs/StegVerse-Repo-Minimum-Standard-v1.md"
+            description: Path to canonical minimum standard doc in StegDB.
+
+          repo_type:
+            type: string
+            enum: [foundation, identity, template, tooling, research, experiment, archive, unknown]
+            default: unknown
+            description: Declared repo type (used to determine type-specific minimums).
+
+          require_status_md:
+            type: boolean
+            default: true
+            description: Whether STATUS.md is required to pass the minimum standard.
+
+          require_contract_for_types:
+            type: array
+            items:
+              type: string
+              enum: [tooling]
+            default: ["tooling"]
+            description: Repo types that must include CONTRACT.md (or equivalent).
+
+          require_welcome_for_types:
+            type: array
+            items:
+              type: string
+              enum: [template]
+            default: ["template"]
+            description: Repo types that must include WELCOME.md.
+
+          success_path_required:
+            type: boolean
+            default: true
+            description: README must include at least one success path OR explicitly state none exists yet.
+
+          required_readme_questions:
+            type: array
+            items: { type: string }
+            default:
+              - What this is
+              - What this is not
+              - Current status
+              - How to start
+              - How it connects
+            description: Conceptual checklist StegDB evaluates in the README.
 
   outputs:
     type: object
