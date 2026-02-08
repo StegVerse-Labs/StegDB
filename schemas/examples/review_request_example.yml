@@ -104,6 +104,14 @@ checks:
       - Announcement claims contradict repo reality
       - Data loss risk from normal use
 
+  minimum_standard_v1:
+    enabled: true
+    repo_type: template
+    require_status_md: true
+    require_contract_for_types: ["tooling"]
+    require_welcome_for_types: ["template"]
+    success_path_required: true
+
 outputs:
   report_paths:
     markdown: stegdb_review/report.md
