@@ -2,8 +2,8 @@ $schema: https://json-schema.org/draft/2020-12/schema
 $id: https://stegverse-labs.github.io/stegdb/schemas/review_result_v1.json
 title: StegDB Repo Review Result
 description: >
-  Validates a StegDB review output ("result.yml"). This is the non-destructive
-  report produced after analyzing a repo against a review request.
+  Validates a StegDB review output file (result.yml). This is a non-destructive report
+  produced after analyzing a repository against a review request.
 
 type: object
 additionalProperties: false
@@ -31,7 +31,7 @@ properties:
       default_branch: { type: string, minLength: 1 }
       reviewed_at_utc:
         type: string
-        description: ISO-8601 UTC timestamp
+        description: ISO-8601 UTC timestamp (must end with 'Z')
         pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$'
 
   summary:
@@ -128,6 +128,52 @@ properties:
         items: { type: string }
         default: []
       recommended_additions:
+        type: array
+        items: { type: string }
+        default: []
+
+  minimum_standard_v1:
+    type: object
+    additionalProperties: false
+    required: [passes]
+    properties:
+      passes:
+        type: boolean
+        description: Whether the repo meets the minimum standard baseline.
+      repo_type:
+        type: string
+        enum: [foundation, identity, template, tooling, research, experiment, archive, unknown]
+      missing_required:
+        type: array
+        items: { type: string }
+        default: []
+      missing_recommended:
+        type: array
+        items: { type: string }
+        default: []
+      readme_coverage:
+        type: object
+        additionalProperties: false
+        properties:
+          what_this_is: { type: boolean }
+          what_this_is_not: { type: boolean }
+          current_status: { type: boolean }
+          how_to_start: { type: boolean }
+          how_it_connects: { type: boolean }
+      status_md:
+        type: object
+        additionalProperties: false
+        properties:
+          present: { type: boolean }
+          has_state: { type: boolean }
+          has_works_today: { type: boolean }
+          has_known_gaps: { type: boolean }
+          has_next_steps: { type: boolean }
+          has_last_reviewed_utc: { type: boolean }
+      type_specific:
+        type: object
+        additionalProperties: true
+      notes:
         type: array
         items: { type: string }
         default: []
