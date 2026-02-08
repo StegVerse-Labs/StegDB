@@ -7,12 +7,16 @@ then produces review artifacts under --out (default: stegdb_review).
 
 Non-destructive: does not modify the target repo, does not create PRs,
 does not sync canonicals.
+
+Self-review is normalized:
+- If --target is ".", it treats the current workspace as the repo under review.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any, Dict, List
@@ -36,10 +40,24 @@ def exists(repo_path: Path, rel: str) -> bool:
     return (repo_path / rel).exists()
 
 
+def preflight_file(path: Path, label: str) -> None:
+    if not path.exists():
+        raise FileNotFoundError(f"{label} not found: {path}")
+    if path.is_dir():
+        raise IsADirectoryError(f"{label} is a directory, expected file: {path}")
+
+
+def preflight_dir(path: Path, label: str) -> None:
+    if not path.exists():
+        raise FileNotFoundError(f"{label} not found: {path}")
+    if not path.is_dir():
+        raise NotADirectoryError(f"{label} is not a directory: {path}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--review", required=True, help="Path to review.yml inside StegDB workspace")
-    ap.add_argument("--target", required=True, help="Path to checked-out target repo folder")
+    ap.add_argument("--target", required=True, help="Path to checked-out target repo folder (or '.' for self)")
     ap.add_argument("--out", default="stegdb_review", help="Output folder for review artifacts")
     args = ap.parse_args()
 
@@ -47,15 +65,17 @@ def main() -> None:
     target_repo = Path(args.target).resolve()
     out_dir = Path(args.out).resolve()
 
-    if not review_path.exists():
-        raise FileNotFoundError(f"Review file not found: {review_path}")
-
-    if not target_repo.exists():
-        raise FileNotFoundError(f"Target repo folder not found: {target_repo}")
+    preflight_file(review_path, "Review file")
+    preflight_dir(target_repo, "Target repo folder")
 
     review = load_yaml(review_path)
     repo = review.get("repo", {})
     checks = review.get("checks", {})
+
+    # Normalize self-review detection using GITHUB_REPOSITORY if present
+    current_repo = os.environ.get("GITHUB_REPOSITORY", "")
+    self_owner, self_name = (current_repo.split("/", 1) + [""])[:2]
+    is_self_review = (str(target_repo) == str(Path(".").resolve())) and (repo.get("owner") == self_owner) and (repo.get("name") == self_name)
 
     # --- Minimum Standard v1 gates (Option C) ---
     minstd = checks.get("minimum_standard_v1", {})
@@ -76,23 +96,26 @@ def main() -> None:
     # --- Serious failure definitions ---
     serious_failures: List[str] = []
 
-    # Hard serious failures for first-contact
     if "README.md" in missing_required:
         serious_failures.append("User cannot open/read core docs (README missing)")
 
     if repo_type == "template" and "WELCOME.md" in missing_required:
         serious_failures.append("New user cannot find a start path in under 60 seconds (WELCOME missing)")
 
-    if "STATUS.md" in missing_required:
-        # Usually moderate, but you can treat as serious if you want.
-        # Keeping it moderate by default to avoid over-blocking.
-        pass
-
     confidence = "green"
     if serious_failures:
         confidence = "red"
     elif missing_required:
         confidence = "yellow"
+
+    rationale: List[str] = []
+    if is_self_review:
+        rationale.append("Self-review normalized: target repo is current StegDB workspace (no second checkout).")
+
+    if missing_required:
+        rationale.append(f"Missing required files: {', '.join(missing_required)}")
+    else:
+        rationale.append("Minimum required first-contact files present")
 
     # --- Build result object ---
     result: Dict[str, Any] = {
@@ -107,7 +130,7 @@ def main() -> None:
         "summary": {
             "confidence_signal": confidence,
             "serious_failures_detected": bool(serious_failures),
-            "rationale": [],
+            "rationale": rationale,
         },
         "minimum_standard_v1": {
             "passes": len(missing_required) == 0 and not serious_failures,
@@ -125,24 +148,15 @@ def main() -> None:
             "moderate": [],
             "low": [],
         },
-        "suggested_patches": {
-            "available": False,
-            "path": "stegdb_review/suggested_patches/",
-            "notes": ["Patch generation not enabled in this runner yet"],
+        "meta": {
+            "is_self_review": bool(is_self_review),
+            "target_path": str(target_repo),
+            "review_path": str(review_path),
         },
     }
 
-    if missing_required:
-        result["summary"]["rationale"].append(f"Missing required files: {', '.join(missing_required)}")
-        if "STATUS.md" in missing_required:
-            result["failure_modes"]["moderate"].append("STATUS.md missing (project state not declared)")
-            result["summary"]["rationale"].append("STATUS.md missing")
-    else:
-        result["summary"]["rationale"].append("Minimum required first-contact files present")
-
     # --- Write outputs ---
     out_dir.mkdir(parents=True, exist_ok=True)
-
     write_yaml(out_dir / "result.yml", result)
     (out_dir / "result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
 
@@ -155,7 +169,7 @@ Confidence: **{confidence.upper()}**
 Serious failures detected: **{str(result['summary']['serious_failures_detected']).lower()}**
 
 ## Rationale
-""" + "\n".join(f"- {r}" for r in result["summary"]["rationale"]) + """
+""" + "\n".join(f"- {r}" for r in rationale) + """
 
 ## Missing required (Minimum Standard)
 """ + ("\n".join(f"- {f}" for f in missing_required) if missing_required else "- None") + """
@@ -168,6 +182,7 @@ Serious failures detected: **{str(result['summary']['serious_failures_detected']
     print(f"[StegDB] Review file: {review_path}")
     print(f"[StegDB] Target repo: {target_repo}")
     print(f"[StegDB] Output dir:  {out_dir}")
+    print(f"[StegDB] Self-review: {is_self_review}")
     print(f"[StegDB] Confidence: {confidence.upper()}")
 
 
