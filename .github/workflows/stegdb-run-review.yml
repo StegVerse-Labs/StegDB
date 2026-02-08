@@ -43,14 +43,26 @@ jobs:
           name = data["repo"]["name"]
           ref = data["repo"].get("default_branch", "main")
 
+          # Current workflow repo is the StegDB repo we already checked out
+          current_repo = os.environ.get("GITHUB_REPOSITORY", "")
+          self_owner, self_name = (current_repo.split("/", 1) + [""])[:2]
+
+          is_self = (owner == self_owner and name == self_name)
+
+          # If self-review, target is the current workspace (.)
+          target_dir = "." if is_self else "target_repo"
+
           out = os.environ["GITHUB_OUTPUT"]
           with open(out, "a", encoding="utf-8") as f:
               f.write(f"owner={owner}\n")
               f.write(f"name={name}\n")
               f.write(f"ref={ref}\n")
+              f.write(f"is_self={'true' if is_self else 'false'}\n")
+              f.write(f"target_dir={target_dir}\n")
           PY
 
-      - name: Checkout target repo
+      - name: Checkout target repo (skip if self-review)
+        if: ${{ steps.parse.outputs.is_self != 'true' }}
         uses: actions/checkout@v4
         with:
           repository: ${{ steps.parse.outputs.owner }}/${{ steps.parse.outputs.name }}
@@ -61,7 +73,7 @@ jobs:
         run: |
           python tools/run_review.py \
             --review "${{ inputs.review_path }}" \
-            --target "target_repo" \
+            --target "${{ steps.parse.outputs.target_dir }}" \
             --out "stegdb_review"
 
       - name: Upload review artifact
