@@ -50,6 +50,34 @@ first_contact:
   recommended_additions:
     - Add WELCOME.md with device-agnostic guidance
 
+minimum_standard_v1:
+  passes: false
+  repo_type: template
+  missing_required:
+    - WELCOME.md
+    - STATUS.md
+  missing_recommended:
+    - LICENSE
+  readme_coverage:
+    what_this_is: true
+    what_this_is_not: true
+    current_status: false
+    how_to_start: false
+    how_it_connects: true
+  status_md:
+    present: false
+    has_state: false
+    has_works_today: false
+    has_known_gaps: false
+    has_next_steps: false
+    has_last_reviewed_utc: false
+  type_specific:
+    welcome_md_required: true
+    contract_md_required: false
+  notes:
+    - Template repos require WELCOME.md for first-contact reliability.
+    - STATUS.md stabilizes repo intent and prevents ambiguity.
+
 failure_modes:
   serious: []
   moderate:
