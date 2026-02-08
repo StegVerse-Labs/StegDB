@@ -43,13 +43,10 @@ jobs:
           name = data["repo"]["name"]
           ref = data["repo"].get("default_branch", "main")
 
-          # Current workflow repo is the StegDB repo we already checked out
           current_repo = os.environ.get("GITHUB_REPOSITORY", "")
           self_owner, self_name = (current_repo.split("/", 1) + [""])[:2]
 
           is_self = (owner == self_owner and name == self_name)
-
-          # If self-review, target is the current workspace (.)
           target_dir = "." if is_self else "target_repo"
 
           out = os.environ["GITHUB_OUTPUT"]
