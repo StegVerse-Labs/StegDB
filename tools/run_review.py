@@ -75,7 +75,11 @@ def main() -> None:
     # Normalize self-review detection using GITHUB_REPOSITORY if present
     current_repo = os.environ.get("GITHUB_REPOSITORY", "")
     self_owner, self_name = (current_repo.split("/", 1) + [""])[:2]
-    is_self_review = (str(target_repo) == str(Path(".").resolve())) and (repo.get("owner") == self_owner) and (repo.get("name") == self_name)
+    is_self_review = (
+        str(target_repo) == str(Path(".").resolve())
+        and repo.get("owner") == self_owner
+        and repo.get("name") == self_name
+    )
 
     # --- Minimum Standard v1 gates (Option C) ---
     minstd = checks.get("minimum_standard_v1", {})
