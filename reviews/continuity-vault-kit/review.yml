@@ -1,0 +1,63 @@
+schema_name: stegdb_repo_review
+schema_version: 1.0.0
+
+repo:
+  owner: StegVerse-Labs
+  name: continuity-vault-kit
+  default_branch: main
+  visibility: public
+  tags:
+    - continuity
+    - knowledge
+    - template
+
+intent:
+  statement: >
+    Provide portable, device-agnostic vault templates and onboarding documentation
+    so anyone can create a personal KnowledgeVault without gatekeeping or lock-in.
+  status: active
+  audience:
+    - public
+    - non_technical
+    - technical
+  non_goals:
+    - Not a cloud service
+    - Not a product
+    - Not surveillance
+
+scope:
+  review_type: audit_docs_kv_visibility
+
+modes:
+  destructive_actions: forbidden
+  network_access: github_only
+  output_format: all
+
+checks:
+  structural_audit:
+    enabled: true
+
+  doc_reality_check:
+    enabled: true
+
+  legacy_signaling:
+    enabled: true
+
+  first_contact:
+    enabled: true
+
+  failure_modes:
+    enabled: true
+
+  minimum_standard_v1:
+    enabled: true
+    repo_type: template
+
+outputs:
+  report_paths:
+    markdown: stegdb_review/report.md
+    yaml: stegdb_review/result.yml
+    json: stegdb_review/result.json
+  confidence_signal: green
+  include_suggested_patches: true
+  patches_path: stegdb_review/suggested_patches/
