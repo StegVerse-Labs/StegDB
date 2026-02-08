@@ -1,0 +1,73 @@
+name: StegDB - Remove broken CosDen submodule
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  remove-submodule:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout StegDB
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Detect submodule state
+        id: detect
+        run: |
+          set -e
+          if [ -e ".gitmodules" ]; then
+            echo "has_gitmodules=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_gitmodules=false" >> $GITHUB_OUTPUT
+          fi
+
+          if [ -e "CosDen" ]; then
+            echo "has_cosden_path=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_cosden_path=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Remove submodule gitlink (CosDen)
+        if: steps.detect.outputs.has_cosden_path == 'true'
+        run: |
+          set -e
+          # If it's a submodule gitlink, this removes it from the index safely
+          git rm -f --cached CosDen || true
+          # Also remove working tree path if it exists
+          rm -rf CosDen || true
+
+      - name: Clean .gitmodules (remove CosDen stanza if present)
+        if: steps.detect.outputs.has_gitmodules == 'true'
+        run: |
+          set -e
+          # Remove any "submodule \"CosDen\"" section
+          git config -f .gitmodules --remove-section submodule.CosDen 2>/dev/null || true
+          # If .gitmodules is now empty, remove it
+          if [ ! -s .gitmodules ]; then
+            rm -f .gitmodules
+          fi
+
+      - name: Remove any lingering git config for the submodule
+        run: |
+          set -e
+          git config --local --remove-section submodule.CosDen 2>/dev/null || true
+
+      - name: Commit changes (if any)
+        run: |
+          set -e
+          if git status --porcelain | grep -q .; then
+            git add -A
+            git commit -m "Remove broken CosDen submodule reference"
+            git push
+          else
+            echo "No changes detected; nothing to commit."
+          fi
