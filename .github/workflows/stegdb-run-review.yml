@@ -31,9 +31,10 @@ jobs:
       - name: Parse review.yml (target repo)
         id: parse
         run: |
-          python - <<'PY'
+          python - <<PY
           import yaml
           from pathlib import Path
+          import os
 
           review_path = Path("${{ inputs.review_path }}")
           data = yaml.safe_load(review_path.read_text(encoding="utf-8"))
@@ -42,10 +43,11 @@ jobs:
           name = data["repo"]["name"]
           ref = data["repo"].get("default_branch", "main")
 
-          with open("${GITHUB_OUTPUT}", "a", encoding="utf-8") as f:
-            f.write(f"owner={owner}\n")
-            f.write(f"name={name}\n")
-            f.write(f"ref={ref}\n")
+          out = os.environ["GITHUB_OUTPUT"]
+          with open(out, "a", encoding="utf-8") as f:
+              f.write(f"owner={owner}\n")
+              f.write(f"name={name}\n")
+              f.write(f"ref={ref}\n")
           PY
 
       - name: Checkout target repo
