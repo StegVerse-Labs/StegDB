@@ -17,7 +17,9 @@ jobs:
     steps:
       - name: Checkout StegDB
         uses: actions/checkout@v4
-
+        with:
+          clean: false
+    
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
