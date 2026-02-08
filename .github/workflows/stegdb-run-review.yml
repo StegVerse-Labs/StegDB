@@ -1,0 +1,69 @@
+name: stegdb-run-review
+
+on:
+  workflow_dispatch:
+    inputs:
+      review_path:
+        description: "Path to the review.yml inside StegDB"
+        required: true
+        default: "reviews/continuity-vault-kit/review.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  run-review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout StegDB
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml jsonschema
+
+      - name: Parse review.yml (target repo)
+        id: parse
+        run: |
+          python - <<'PY'
+          import yaml
+          from pathlib import Path
+
+          review_path = Path("${{ inputs.review_path }}")
+          data = yaml.safe_load(review_path.read_text(encoding="utf-8"))
+
+          owner = data["repo"]["owner"]
+          name = data["repo"]["name"]
+          ref = data["repo"].get("default_branch", "main")
+
+          with open("${GITHUB_OUTPUT}", "a", encoding="utf-8") as f:
+            f.write(f"owner={owner}\n")
+            f.write(f"name={name}\n")
+            f.write(f"ref={ref}\n")
+          PY
+
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.parse.outputs.owner }}/${{ steps.parse.outputs.name }}
+          ref: ${{ steps.parse.outputs.ref }}
+          path: target_repo
+
+      - name: Run review
+        run: |
+          python tools/run_review.py \
+            --review "${{ inputs.review_path }}" \
+            --target "target_repo" \
+            --out "stegdb_review"
+
+      - name: Upload review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stegdb-review-output
+          path: stegdb_review/**
