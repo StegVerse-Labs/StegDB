@@ -8,13 +8,16 @@ repo:
   visibility: public
   tags:
     - continuity
-    - knowledge
+    - knowledgevault
     - template
+    - onboarding
+    - device-agnostic
 
 intent:
   statement: >
-    Provide portable, device-agnostic vault templates and onboarding documentation
-    so anyone can create a personal KnowledgeVault without gatekeeping or lock-in.
+    KnowledgeVault is a device-agnostic personal vault template and onboarding kit.
+    It must be immediately usable after announcement on iOS, Android, Windows, macOS, and Linux
+    using only basic file operations (download/copy/unzip/open), with no serious failures.
   status: active
   audience:
     - public
@@ -24,9 +27,29 @@ intent:
     - Not a cloud service
     - Not a product
     - Not surveillance
+    - Not an identity gatekeeper
+    - Not permanent authority
 
 scope:
   review_type: audit_docs_kv_visibility
+  include_paths:
+    - README.md
+    - WELCOME.md
+    - STATUS.md
+    - GETTING_STARTED.md
+    - SAFETY.md
+    - DO_NOT_STORE_HERE.md
+    - vault_template/
+    - docs/
+    - tools/
+  exclude_paths:
+    - dist/
+    - build/
+  file_globs_exclude:
+    - .git/**
+    - "**/.DS_Store"
+    - "**/node_modules/**"
+    - "**/__pycache__/**"
 
 modes:
   destructive_actions: forbidden
@@ -36,22 +59,85 @@ modes:
 checks:
   structural_audit:
     enabled: true
+    required_files:
+      - README.md
+    recommended_files:
+      - WELCOME.md
+      - STATUS.md
+      - LICENSE
+    folder_expectations:
+      - vault_template/
+      - docs/
 
   doc_reality_check:
     enabled: true
+    must_include_sections:
+      - What it is
+      - What this is
+      - What it is not
+      - How to start
+      - Start here
+    disallow_phrases:
+      - invite-only
+      - approval required
+      - must request access
+      - contact admin
+      - closed beta
 
   legacy_signaling:
     enabled: true
+    heuristics:
+      - orphaned_files
+      - duplicate_docs
+      - stale_configs
+      - todo_only_files
+      - abandoned_prototypes
+    classification_labels:
+      - active
+      - experimental
+      - legacy
+      - candidate_for_deprecation
 
   first_contact:
     enabled: true
+    welcome_file: WELCOME.md
+    must_answer_questions:
+      - What is this?
+      - How do I start on any device?
+      - What am I not being enrolled into?
+      - Where is the template folder?
+    device_agnostic_language: true
 
   failure_modes:
     enabled: true
+    classify_severity:
+      - low
+      - moderate
+      - serious
+    definition_serious_failure:
+      - User cannot open/read core docs
+      - Template breaks on Windows/macOS/Linux/Android/iOS
+      - Docs imply dependencies that do not exist
+      - Announcement claims contradict repo reality
+      - Data loss risk from normal use
+      - New user cannot find a start path in under 60 seconds
 
   minimum_standard_v1:
     enabled: true
+    standard_doc_path: "docs/StegVerse-Repo-Minimum-Standard-v1.md"
     repo_type: template
+    require_status_md: true
+    require_contract_for_types:
+      - tooling
+    require_welcome_for_types:
+      - template
+    success_path_required: true
+    required_readme_questions:
+      - What this is
+      - What this is not
+      - Current status
+      - How to start
+      - How it connects
 
 outputs:
   report_paths:
