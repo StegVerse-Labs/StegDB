@@ -2,29 +2,29 @@
 
 This folder contains machine-readable schemas used by StegDB to validate inputs and outputs.
 
-These schemas are designed to support:
+These schemas support:
 - repeatable, non-destructive repository reviews
 - documentation alignment without gatekeeping
 - consistent reporting across many repositories
 
-Nothing in these schemas implies enforcement, authority, or irreversible changes.
+These schemas provide **structure**, not authority.
 
 ---
 
 ## Schemas
 
 ### `review_schema_v1.yml`
-**Purpose:** Validates a StegDB review request file (typically `reviews/<repo>/review.yml`).
+Validates a StegDB review request file (typically `reviews/<repo>/review.yml`).
 
 A review request declares:
 - which repo is being reviewed
 - the repo’s intent and lifecycle status
-- the scope of review (read-only audit vs. audit + doc suggestions)
-- checks to run
+- review scope (read-only audit vs. audit + doc suggestions)
+- checks to run (including minimum standard evaluation)
 - output locations
 
 ### `review_result_v1.yml`
-**Purpose:** Validates a StegDB review output file (typically `stegdb_review/result.yml`).
+Validates a StegDB review result file (typically `stegdb_review/result.yml`).
 
 A review result contains:
 - an overall confidence signal (`green | yellow | red`)
@@ -34,6 +34,17 @@ A review result contains:
 - suggested documentation changes
 - first-contact issues and recommendations
 - failure mode enumeration
+- minimum-standard evaluation (`minimum_standard_v1`)
+
+---
+
+## Minimum Standard
+
+StegVerse defines a lightweight baseline for repo clarity and future-proofing.
+StegDB can evaluate repos against this baseline and report gaps without enforcing changes.
+
+Canonical standard doc (recommended path):
+- `docs/StegVerse-Repo-Minimum-Standard-v1.md`
 
 ---
 
@@ -53,4 +64,4 @@ These can be copied and adapted repo-by-repo.
 - Reviews are **non-destructive** by default.
 - Deprecation is **signaling**, not deletion.
 - Forking and reinterpretation are expected.
-- These schemas provide structure, not authority.
+- Validation prevents silent drift and reduces first-contact failures.
