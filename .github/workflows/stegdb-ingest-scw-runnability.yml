@@ -1,0 +1,95 @@
+name: StegDB - Ingest SCW Runnability Audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout StegDB
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download latest SCW artifact (best-effort)
+        env:
+          GH_TOKEN: ${{ secrets.STEGVERSE_AUDIT_TOKEN }}
+          REPO: "stegverse-labs/StegVerse-SCW"
+          ARTIFACT_NAME: "scw_workflow_runnability_audit"
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          mkdir -p _inbox
+
+          python - <<'PY'
+import os, json, urllib.request, urllib.error, zipfile
+from pathlib import Path
+
+token = os.getenv("GH_TOKEN")
+repo = os.getenv("REPO")
+name = os.getenv("ARTIFACT_NAME")
+if not token:
+  raise SystemExit("Missing secrets.STEGVERSE_AUDIT_TOKEN (GH_TOKEN).")
+
+def api(url):
+  req = urllib.request.Request(url)
+  req.add_header("Accept","application/vnd.github+json")
+  req.add_header("Authorization", f"Bearer {token}")
+  req.add_header("User-Agent","stegdb-ingest")
+  with urllib.request.urlopen(req) as r:
+    return json.loads(r.read().decode("utf-8"))
+
+arts = api(f"https://api.github.com/repos/{repo}/actions/artifacts?per_page=100")
+items = arts.get("artifacts", [])
+match = None
+for a in items:
+  if a.get("name") == name:
+    if (match is None) or (a.get("updated_at","") > match.get("updated_at","")):
+      match = a
+
+if not match:
+  raise SystemExit(f"No artifact named {name} found in {repo}")
+
+dl = match["archive_download_url"]
+req = urllib.request.Request(dl)
+req.add_header("Authorization", f"Bearer {token}")
+req.add_header("User-Agent","stegdb-ingest")
+with urllib.request.urlopen(req) as r:
+  data = r.read()
+
+zip_path = Path("_inbox")/"scw_artifact.zip"
+zip_path.write_bytes(data)
+
+with zipfile.ZipFile(zip_path, "r") as z:
+  z.extractall("_inbox")
+
+print("Downloaded+extracted artifact to _inbox/")
+PY
+
+      - name: Ingest into StegDB canonical meta
+        run: |
+          set -euo pipefail
+          python tools/ingest_scw_runnability.py --input _inbox/workflow_runnability_latest.json
+
+      - name: Commit meta changes
+        if: github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add meta/guardian/per_repo/StegVerse-SCW/workflow_runnability_latest.json meta/guardian/per_repo/StegVerse-SCW/LATEST.md 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No changes."
+            exit 0
+          fi
+          git commit -m "chore(meta): ingest SCW workflow runnability audit [skip ci]"
+          git push
