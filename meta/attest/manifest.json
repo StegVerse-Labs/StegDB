@@ -1,0 +1,23 @@
+{
+  "entries": {
+    "meta/.gitkeep": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    "meta/CONTRACT.md": {
+      "sha256": "c32be82a24ed5b400814247d42f81ffb102edb0da88cd3b65f9fbad257d7512e",
+      "size": 813
+    },
+    "meta/aggregated_files.jsonl": {
+      "sha256": "bdaf6ab7d49aacab37c1c29b1e0c47653a9ef2667c24ea1bd1fc416de97738a5",
+      "size": 5923
+    },
+    "meta/dependency_status.json": {
+      "sha256": "46ee5b408540abf40ef8880c7fcc25da74387cc7438029753e9c9da83179e590",
+      "size": 389
+    }
+  },
+  "file_count": 4,
+  "generated_at_utc": "2026-02-23T13:46:24+00:00",
+  "root": "meta"
+}
