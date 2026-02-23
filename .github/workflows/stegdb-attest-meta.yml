@@ -1,0 +1,42 @@
+name: StegDB - Attest Meta
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 12 * * *" # daily 12:30 UTC (after global audits)
+
+permissions:
+  contents: write
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout StegDB
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build attest manifest
+        run: |
+          set -euo pipefail
+          python tools/build_attest_manifest.py
+
+      - name: Commit manifest
+        if: github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add meta/attest/manifest.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No manifest changes."
+            exit 0
+          fi
+          git commit -m "chore(attest): update meta manifest [skip ci]"
+          git push
