@@ -1,0 +1,48 @@
+{
+  "kit_version": "constitutional-guard@v1",
+  "org_default": "StegVerse-Labs",
+  "audit_mode": "public_only",
+  "required_workflows": [
+    ".github/workflows/constitutional-guard.yml"
+  ],
+  "required_files": [
+    "CONSTITUTIONAL_ENFORCEMENT_MATRIX.md",
+    "CONSTITUTIONAL_UPDATE_PROCESS.md",
+    "constitution.lock",
+    "scripts/lock_constitution.py",
+    "scripts/constitutional_lint.py"
+  ],
+  "constitutional_signals": {
+    "paths_any": [
+      "schemas/",
+      "docs/governance/",
+      "docs/stegseed",
+      "roles_templates/",
+      "tv_manifest.yml",
+      "policy_bundle.json",
+      "opa/",
+      "rego/",
+      "app/resolver.py",
+      "app/main.py"
+    ],
+    "filenames_any": [
+      "GOVERNANCE_DECISION_RECORD.md",
+      "TRACE_SIGNAL_BUNDLE.md",
+      "RESOLVER_CONTRACT.md"
+    ]
+  },
+  "output_schema": {
+    "matrix_json": "v1",
+    "fields": [
+      "repo",
+      "private",
+      "archived",
+      "default_branch",
+      "head_sha",
+      "classification",
+      "requirements",
+      "status",
+      "scan"
+    ]
+  }
+}
