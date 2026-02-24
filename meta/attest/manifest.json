@@ -12,12 +12,16 @@
       "sha256": "bdaf6ab7d49aacab37c1c29b1e0c47653a9ef2667c24ea1bd1fc416de97738a5",
       "size": 5923
     },
+    "meta/attest/manifest.json": {
+      "sha256": "3d437e5f7493da110f0ffe64495a7a07bae603a98fc6d04c4e9b37bc6e1ba70d",
+      "size": 667
+    },
     "meta/dependency_status.json": {
       "sha256": "46ee5b408540abf40ef8880c7fcc25da74387cc7438029753e9c9da83179e590",
       "size": 389
     }
   },
-  "file_count": 4,
-  "generated_at_utc": "2026-02-23T13:46:24+00:00",
+  "file_count": 5,
+  "generated_at_utc": "2026-02-24T13:48:00+00:00",
   "root": "meta"
 }
