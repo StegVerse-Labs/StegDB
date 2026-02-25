@@ -13,8 +13,8 @@
       "size": 5923
     },
     "meta/attest/manifest.json": {
-      "sha256": "3d437e5f7493da110f0ffe64495a7a07bae603a98fc6d04c4e9b37bc6e1ba70d",
-      "size": 667
+      "sha256": "5adf6b25444465a03338ad7cd54a9a46498c4248ecb9c8cebe5569500e582b33",
+      "size": 811
     },
     "meta/dependency_status.json": {
       "sha256": "46ee5b408540abf40ef8880c7fcc25da74387cc7438029753e9c9da83179e590",
@@ -22,6 +22,6 @@
     }
   },
   "file_count": 5,
-  "generated_at_utc": "2026-02-24T13:48:00+00:00",
+  "generated_at_utc": "2026-02-25T13:47:50+00:00",
   "root": "meta"
 }
