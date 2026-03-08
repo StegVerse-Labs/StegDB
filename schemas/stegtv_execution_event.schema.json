@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stegverse-labs.github.io/stegdb/schemas/stegtv_execution_event.schema.json",
+  "title": "StegTV Execution Event",
+  "description": "Canonical StegDB schema for StegTV/TVC execution authority events.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_name",
+    "schema_version",
+    "event_id",
+    "time",
+    "event_type",
+    "decision",
+    "issuer",
+    "repo",
+    "ref",
+    "sha",
+    "scope",
+    "environment",
+    "request_id"
+  ],
+  "properties": {
+    "schema_name": {
+      "const": "stegtv_execution_event"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable unique event identifier."
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "oidc_exchange",
+        "token_issued",
+        "token_verified",
+        "action_attempted",
+        "action_succeeded",
+        "action_denied"
+      ]
+    },
+    "decision": {
+      "type": "string",
+      "enum": ["allow", "deny", "defer", "ok", "fail"]
+    },
+    "reason": {
+      "type": ["string", "null"]
+    },
+    "issuer": {
+      "type": "string",
+      "description": "Usually stegtv/tvc issuer, e.g. stegverse:tvc."
+    },
+    "token_jti": {
+      "type": ["string", "null"]
+    },
+    "rev_epoch": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "policy": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "bundle_hash": {
+          "type": ["string", "null"]
+        },
+        "policy_version": {
+          "type": ["string", "null"]
+        },
+        "source": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "identity": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "type": ["string", "null"],
+          "enum": ["github_oidc", "admin", "internal", null]
+        },
+        "subject": {
+          "type": ["string", "null"]
+        },
+        "repository_claim": {
+          "type": ["string", "null"]
+        },
+        "workflow_ref": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "repo": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sha": {
+      "type": "string",
+      "minLength": 7
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "environment": {
+      "type": "string",
+      "minLength": 1
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "meta": {
+      "type": "object",
+      "description": "Safe non-secret metadata for audit and correlation.",
+      "default": {},
+      "additionalProperties": true
+    }
+  }
+}
