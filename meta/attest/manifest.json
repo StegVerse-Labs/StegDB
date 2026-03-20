@@ -13,7 +13,7 @@
       "size": 5923
     },
     "meta/attest/manifest.json": {
-      "sha256": "80c6b10a878f3de1251c551017fb63c2b6e4d4876301a309410a0bd8fbe76f54",
+      "sha256": "7d8811640bd3d60f71dafe7ba9af3a8fae82ebcfee5a0ca571d047975fc52357",
       "size": 811
     },
     "meta/dependency_status.json": {
@@ -22,6 +22,6 @@
     }
   },
   "file_count": 5,
-  "generated_at_utc": "2026-03-19T13:46:24+00:00",
+  "generated_at_utc": "2026-03-20T13:38:40+00:00",
   "root": "meta"
 }
